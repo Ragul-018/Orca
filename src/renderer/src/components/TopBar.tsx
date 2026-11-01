@@ -1,4 +1,4 @@
-import { BarChart3, Home, LibraryBig, Search, Settings2, Square } from 'lucide-react'
+import { BarChart3, Home, LibraryBig, LoaderCircle, Search, Settings2, Square } from 'lucide-react'
 import { formatDuration } from '@shared/format'
 import { useOrcaStore } from '../store'
 import { Logo } from './Logo'
@@ -18,6 +18,7 @@ export function TopBar(): React.JSX.Element {
   const games = useOrcaStore((state) => state.snapshot?.games ?? [])
   const openGame = useOrcaStore((state) => state.openGame)
   const stopSession = useOrcaStore((state) => state.stopActiveSession)
+  const stopping = useOrcaStore((state) => state.stopping)
   const activeGame = active ? games.find((game) => game.id === active.gameId) : null
   const activeTab = view.name === 'game' ? 'library' : view.name
   const overArt = view.name === 'home' || view.name === 'game'
@@ -59,13 +60,18 @@ export function TopBar(): React.JSX.Element {
               </span>
             </button>
             <button
-              className="running-chip__stop"
+              className={`running-chip__stop ${stopping ? 'is-stopping' : ''}`}
               type="button"
-              title="Stop game"
-              aria-label={`Stop ${activeGame.title}`}
+              title={stopping ? 'Stopping game…' : 'Stop game'}
+              aria-label={stopping ? `Stopping ${activeGame.title}` : `Stop ${activeGame.title}`}
               onClick={stopSession}
+              disabled={stopping}
             >
-              <Square size={10} fill="currentColor" />
+              {stopping ? (
+                <LoaderCircle size={11} className="spin" />
+              ) : (
+                <Square size={10} fill="currentColor" />
+              )}
             </button>
           </div>
         )}

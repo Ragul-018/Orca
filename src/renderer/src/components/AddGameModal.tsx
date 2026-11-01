@@ -3,6 +3,7 @@ import {
   Check,
   FolderSearch,
   Heart,
+  Images,
   ImagePlus,
   LoaderCircle,
   ScanSearch,
@@ -328,7 +329,8 @@ export function AddGameModal(): React.JSX.Element {
                 aria-selected={tab === 'artwork'}
                 onClick={() => setTab('artwork')}
               >
-                🎨 Artwork
+                <Images size={14} />
+                Artwork
               </button>
             </div>
 
@@ -589,13 +591,16 @@ export function AddGameModal(): React.JSX.Element {
                   onApplyAll={async (candidate) => {
                     let coverKey = form.coverArt
                     let heroKey = form.heroArt
+                    const failed: string[] = []
                     if (candidate.coverUrl) {
                       const key = await window.orca.importArtworkUrl(candidate.coverUrl, 'cover')
                       if (key) coverKey = key
+                      else failed.push('cover')
                     }
                     if (candidate.heroUrl) {
                       const key = await window.orca.importArtworkUrl(candidate.heroUrl, 'hero')
                       if (key) heroKey = key
+                      else failed.push('hero')
                     }
                     patch({
                       title: candidate.title || form.title,
@@ -606,6 +611,11 @@ export function AddGameModal(): React.JSX.Element {
                       coverArt: coverKey,
                       heroArt: heroKey
                     })
+                    if (failed.length > 0) {
+                      throw new Error(
+                        `Details were filled, but the ${failed.join(' and ')} artwork could not be downloaded.`
+                      )
+                    }
                   }}
                   onApplyCover={(key) => patch({ coverArt: key })}
                   onApplyHero={(key) => patch({ heroArt: key })}

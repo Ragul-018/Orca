@@ -5,7 +5,7 @@ import path from 'node:path'
 import type { ActiveSession, LaunchResult, PlaySession } from '@shared/types'
 import type { DataStore, StoredActiveSession } from './data-store'
 import { getProcessImagePath, listProcesses, processNameMatches } from './processes-win32'
-import { parseArguments, runPowerShell, spawnGame } from './windows-utils'
+import { encodePowerShell, parseArguments, runPowerShell, spawnGame } from './windows-utils'
 
 const TICK_MS = 2_000
 const END_GRACE_MS = 9_000
@@ -28,6 +28,7 @@ export class SessionManager extends EventEmitter {
   private active: InternalSession | null = null
   private readonly timer: NodeJS.Timeout
   private ignoredPids = new Map<number, number>()
+  private suppressedGames = new Map<string, number>()
   private tickCount = 0
   private stopping = false
 
@@ -116,16 +117,17 @@ export class SessionManager extends EventEmitter {
     this.stopping = true
     const active = this.active
     const rootPid = active.rootPid
-    const watchName = active.watchName
     const trackedPids = [...active.trackedSet]
 
-    // Immediately ignore all currently tracked PIDs so external scanner doesn't pick them back up
+    // Ignore the stopped process tree and keep the external scanner from
+    // re-attaching to a game that is still shutting down (or auto-restarting).
     for (const pid of trackedPids) {
       this.ignoredPids.set(pid, Date.now() + IGNORE_PID_MS)
     }
+    this.suppressedGames.set(active.gameId, Date.now() + 12_000)
 
     try {
-      await terminateGame(rootPid, watchName, trackedPids)
+      await terminateGame(rootPid, trackedPids)
     } catch {
       // Best-effort termination
     } finally {
@@ -285,6 +287,8 @@ export class SessionManager extends EventEmitter {
       if (!imagePath) continue
       const game = gamesWithName.find((candidate) => samePath(imagePath, candidate.executablePath))
       if (!game) continue
+      const suppressedUntil = this.suppressedGames.get(game.id)
+      if (suppressedUntil && suppressedUntil > Date.now()) continue
 
       await this.beginSession({
         gameId: game.id,
@@ -376,45 +380,64 @@ async function runTaskkill(args: string[]): Promise<boolean> {
   })
 }
 
-function isAnyProcessAlive(pids: number[], watchName?: string): boolean {
+function isProcessAlive(pid: number): boolean {
   try {
-    const current = listProcesses(true)
-    const pidSet = new Set(pids)
-    const targetName = watchName ? watchName.toLowerCase() : null
-    return current.some((proc) => pidSet.has(proc.pid) || (targetName !== null && proc.name.toLowerCase() === targetName))
+    return listProcesses(true).some((proc) => proc.pid === pid)
   } catch {
     return false
   }
 }
 
-async function terminateGame(rootPid: number, watchName?: string, trackedPids: number[] = []): Promise<void> {
-  const allPids = Array.from(new Set([rootPid, ...trackedPids])).filter((p) => Number.isInteger(p) && p > 0)
-  const isExe = Boolean(watchName && watchName.toLowerCase().endsWith('.exe'))
+function alivePids(pids: number[]): number[] {
+  try {
+    const target = new Set(pids)
+    return listProcesses(true)
+      .filter((proc) => target.has(proc.pid))
+      .map((proc) => proc.pid)
+  } catch {
+    return []
+  }
+}
 
-  // 1. Try standard un-elevated taskkill first (fast, completely hidden, 0 prompts)
-  if (rootPid > 0) {
+async function terminateGame(rootPid: number, trackedPids: number[]): Promise<void> {
+  const allPids = Array.from(new Set([rootPid, ...trackedPids])).filter(
+    (pid) => Number.isInteger(pid) && pid > 0
+  )
+  if (allPids.length === 0) return
+
+  // Only ever target PIDs that belong to this tracked session. Never use
+  // `/IM <name>`: that would also kill unrelated processes that happen to
+  // share an executable name (for example another cmd.exe or Unity game).
+  if (allPids.includes(rootPid) && isProcessAlive(rootPid)) {
     await runTaskkill(['/PID', String(rootPid), '/T', '/F'])
   }
-  if (isExe && watchName) {
-    await runTaskkill(['/IM', watchName, '/T', '/F'])
+
+  // Children can outlive the root, so kill any remaining tracked PIDs
+  // individually rather than falling back to a name match.
+  for (const pid of alivePids(allPids)) {
+    if (pid === rootPid) continue
+    await runTaskkill(['/PID', String(pid), '/T', '/F'])
   }
 
-  // Short pause for Windows to release process handles
   await sleep(250)
 
-  // 2. Check if processes are already dead. If so, return immediately with zero prompts!
-  if (!isAnyProcessAlive(allPids, isExe ? watchName : undefined)) {
-    return
-  }
+  const survivors = alivePids(allPids)
+  if (survivors.length === 0) return
 
-  // 3. ONLY if processes are still alive (e.g. game was run with Administrator elevation),
-  // fire AT MOST ONE elevated taskkill command. NEVER loop over PIDs.
+  // One last attempt for games running elevated. This is the only elevation
+  // prompt the launcher ever raises for a stop request; if it is cancelled,
+  // we give up instead of prompting again.
   try {
-    const targetArg = isExe && watchName ? `/IM ${watchName} /T /F` : `/PID ${rootPid} /T /F`
-    const script = `Start-Process taskkill -ArgumentList '${targetArg}' -Verb RunAs -WindowStyle Hidden`
-    await runPowerShell(script, 8_000)
+    const innerScript = `Stop-Process -Id ${survivors.join(',')} -Force -ErrorAction SilentlyContinue`
+    const encoded = encodePowerShell(innerScript)
+    const script = [
+      `Start-Process -FilePath 'powershell.exe'`,
+      `-ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-WindowStyle','Hidden','-EncodedCommand','${encoded}')`,
+      `-Verb RunAs -WindowStyle Hidden -Wait`
+    ].join(' ')
+    await runPowerShell(script, 12_000)
   } catch {
-    // If user cancelled the prompt or it timed out, do not prompt again.
+    // User cancelled elevation or it timed out. Do not prompt again.
   }
 
   await sleep(150)

@@ -5,6 +5,7 @@ import {
   Clock3,
   FolderOpen,
   Heart,
+  LoaderCircle,
   MoreHorizontal,
   Pencil,
   Play,
@@ -29,6 +30,7 @@ export function GamePage({ gameId }: { gameId: string }): React.JSX.Element {
   const goBack = useOrcaStore((state) => state.goBack)
   const launchGame = useOrcaStore((state) => state.launchGame)
   const stopSession = useOrcaStore((state) => state.stopActiveSession)
+  const stopping = useOrcaStore((state) => state.stopping)
   const setFavorite = useOrcaStore((state) => state.setFavorite)
   const openAddGame = useOrcaStore((state) => state.openAddGame)
   const removeGame = useOrcaStore((state) => state.removeGame)
@@ -98,9 +100,18 @@ export function GamePage({ gameId }: { gameId: string }): React.JSX.Element {
 
           <div className="game-hero__actions">
             {isActive ? (
-              <button className="button button--primary button--large" type="button" onClick={stopSession}>
-                <Square size={14} fill="currentColor" />
-                Stop game
+              <button
+                className="button button--primary button--large"
+                type="button"
+                onClick={stopSession}
+                disabled={stopping}
+              >
+                {stopping ? (
+                  <LoaderCircle size={14} className="spin" />
+                ) : (
+                  <Square size={14} fill="currentColor" />
+                )}
+                {stopping ? 'Stopping…' : 'Stop game'}
               </button>
             ) : (
               <button

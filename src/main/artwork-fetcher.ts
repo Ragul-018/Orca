@@ -65,7 +65,23 @@ async function netFetchBuffer(url: string): Promise<Buffer> {
     const chunks: Buffer[] = []
     req.on('response', (res) => {
       res.on('data', (chunk: Buffer) => chunks.push(chunk))
-      res.on('end', () => resolve(Buffer.concat(chunks)))
+      res.on('end', () => {
+        const contentType = String(res.headers['content-type'] ?? '').toLowerCase()
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`Artwork request failed with HTTP ${res.statusCode}.`))
+          return
+        }
+        if (contentType && !contentType.startsWith('image/')) {
+          reject(new Error('The artwork source did not return an image.'))
+          return
+        }
+        const buffer = Buffer.concat(chunks)
+        if (buffer.length === 0) {
+          reject(new Error('The artwork source returned an empty file.'))
+          return
+        }
+        resolve(buffer)
+      })
       res.on('error', reject)
     })
     req.on('error', reject)
@@ -397,12 +413,45 @@ export async function searchArtwork(
   }
 }
 
-export async function downloadImageBuffer(url: string): Promise<{ buffer: Buffer; ext: string }> {
-  const buffer = await netFetchBuffer(url)
+function extensionForUrl(url: string): string {
   const lower = url.toLowerCase().split('?')[0]
-  let ext = 'jpg'
-  if (lower.endsWith('.png')) ext = 'png'
-  else if (lower.endsWith('.webp')) ext = 'webp'
-  else if (lower.endsWith('.gif')) ext = 'gif'
-  return { buffer, ext }
+  if (lower.endsWith('.png')) return 'png'
+  if (lower.endsWith('.webp')) return 'webp'
+  if (lower.endsWith('.gif')) return 'gif'
+  return 'jpg'
+}
+
+/**
+ * Some Steam titles do not publish every library asset. Try the known CDN
+ * variants so a missing hero or 2x capsule does not leave a game half-filled.
+ */
+function artworkFallbacks(url: string, kind: 'cover' | 'hero'): string[] {
+  const match = url.match(/\/steam\/apps\/(\d+)\//i)
+  if (!match) return []
+  const appId = match[1]
+  const base = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}`
+  const assets =
+    kind === 'cover'
+      ? ['library_600x900_2x.jpg', 'library_600x900.jpg', 'capsule_616x353.jpg', 'header.jpg']
+      : ['library_hero.jpg', 'library_600x900_2x.jpg', 'header.jpg', 'capsule_616x353.jpg']
+  return assets
+    .map((asset) => `${base}/${asset}`)
+    .filter((candidate) => candidate !== url)
+}
+
+export async function downloadImageBuffer(
+  url: string,
+  kind: 'cover' | 'hero' = 'cover'
+): Promise<{ buffer: Buffer; ext: string }> {
+  const attempts = [url, ...artworkFallbacks(url, kind)]
+  let lastError: unknown = null
+  for (const attempt of attempts) {
+    try {
+      const buffer = await netFetchBuffer(attempt)
+      return { buffer, ext: extensionForUrl(attempt) }
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('The artwork could not be downloaded.')
 }

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 
 const root = path.resolve(import.meta.dirname, '..')
-const packagedExe = process.env.ORCA_EXE?.trim()
+const packagedExe = process.env.ORCA_EXE?.trim() || process.argv[2]?.trim()
 const label = packagedExe ? 'packaged' : 'dev'
 const outDir = path.join(os.tmpdir(), `orca-smoke-${label}`)
 const dataDir = path.join(os.tmpdir(), `orca-smoke-${label}-data`)
@@ -117,6 +117,7 @@ await page.getByRole('button', { name: 'Stop Depth Charge' }).click()
 await page.waitForSelector('.confirm-dialog')
 await shot('12-stop-confirm')
 await page.getByRole('button', { name: 'Stop game', exact: true }).click()
+await page.waitForSelector('.confirm-dialog', { state: 'detached', timeout: 5_000 })
 await page.waitForSelector('.running-chip', { state: 'detached', timeout: 20_000 })
 await page.waitForTimeout(1200)
 

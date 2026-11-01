@@ -39,6 +39,7 @@ interface AddGameModalState {
 interface OrcaStore {
   snapshot: AppSnapshot | null
   activeSession: ActiveSession | null
+  stopping: boolean
   loading: boolean
   bootError: string | null
   view: View
@@ -83,6 +84,7 @@ function viewsEqual(a: View, b: View): boolean {
 export const useOrcaStore = create<OrcaStore>((set, get) => ({
   snapshot: null,
   activeSession: null,
+  stopping: false,
   loading: true,
   bootError: null,
   view: { name: 'home' },
@@ -124,6 +126,7 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
       window.orca.onSessionChanged((activeSession) => {
         set((state) => ({
           activeSession,
+          stopping: activeSession ? state.stopping : false,
           snapshot: state.snapshot ? { ...state.snapshot, activeSession } : state.snapshot
         }))
       })
@@ -263,19 +266,28 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   },
 
   stopActiveSession: () => {
-    const { activeSession, snapshot } = get()
-    if (!activeSession) return
+    const { activeSession, snapshot, stopping } = get()
+    if (!activeSession || stopping) return
     const game = snapshot?.games.find((item) => item.id === activeSession.gameId)
-    const stop = async (): Promise<void> => {
-      try {
-        await window.orca.stopSession()
-      } catch (error) {
-        get().addToast(cleanErrorMessage(error))
-      }
+
+    // The confirmation closes immediately; termination then runs in the
+    // background so an elevation prompt or slow shutdown cannot leave the
+    // dialog spinning forever.
+    const stop = (): void => {
+      set({ stopping: true })
+      void (async () => {
+        try {
+          await window.orca.stopSession()
+        } catch (error) {
+          get().addToast(cleanErrorMessage(error))
+        } finally {
+          set({ stopping: false })
+        }
+      })()
     }
 
     if (!snapshot?.settings.confirmStopGame) {
-      void stop()
+      stop()
       return
     }
 

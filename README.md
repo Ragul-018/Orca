@@ -8,11 +8,12 @@
 ## Features
 
 - **Library** — Add games manually or scan a folder. Supports `.exe`, `.bat`, `.cmd`, `.lnk`, and `.url` shortcuts.
-- **Artwork** — Import cover art and hero images; falls back to bioluminescent procedural initials.
-- **Launcher** — Launches any Windows executable. Tracks the process tree so child processes count as playtime.
+- **Artwork search** — Look up a title on Steam with no API key (IGDB and RAWG keys optional) and apply a match to fill the title, developer, year, genres, synopsis, cover, and hero artwork in one click.
+- **PS5-style home** — Full-bleed artwork, a horizontal game rail, and playtime panels that stay out of the way.
+- **Launcher** — Launches any Windows executable. Tracks the process tree so child processes count as playtime, and stops only the PIDs it started.
 - **Playtime tracking** — Measures exact wall-clock time from launch to stop (or natural exit). Persisted immediately.
 - **Stats dashboard** — Weekly bar chart, all-time totals, session log, and per-game history.
-- **Favourites** — Star any game; homepage hero cycles through them.
+- **Favourites** — Star any game and filter the library down to it.
 - **Search** — `Ctrl+K` fuzzy overlay, searches title, developer, and tags.
 - **Settings** — Minimize on launch, close-to-tray, stop confirmation, external-game tracking toggle.
 - **System tray** — Minimises to tray; right-click for quick launch, restore, and quit.
@@ -124,10 +125,11 @@ pnpm smoke
 
 ```powershell
 pnpm build:dir   # or pnpm build:win
-
-$env:ORCA_EXE = "release\win-unpacked\Orca.exe"
-node scripts/smoke.mjs
+pnpm smoke:pkg
 ```
+
+The packaged runner accepts an explicit executable path too:
+`node scripts/smoke.mjs release\win-unpacked\Orca.exe`. `ORCA_EXE` still overrides it.
 
 Screenshots are saved to `%TEMP%\orca-smoke-<dev|packaged>\` after each run.
 Test data is isolated to `%TEMP%\orca-smoke-<dev|packaged>-data\` and deleted at the start of each run.
@@ -140,7 +142,7 @@ Test data is isolated to `%TEMP%\orca-smoke-<dev|packaged>-data\` and deleted at
 4. Home, Library, Game detail, Search overlay, Stats, and Settings pages all render.
 5. Play button launches the target process.
 6. `koffi` process-tree tracking fires the running chip.
-7. Stop + confirm dialog finalises the session.
+7. Stop + confirm dialog closes immediately and finalises the session.
 8. `playtimeMs` and `sessions` are persisted to `library.json`.
 9. Stats page shows the recorded session.
 10. No console errors or uncaught page errors throughout.
@@ -156,6 +158,14 @@ Test data is isolated to `%TEMP%\orca-smoke-<dev|packaged>-data\` and deleted at
 3. Switch to **Launch setup** and paste or browse to the `.exe` path.
 4. Optionally add launch arguments (e.g. `-windowed -novid`).
 5. Click **Add to Orca**.
+
+### Automatic artwork and details
+
+1. Click **Add game** and type the game title.
+2. Open the **Artwork** tab — Orca searches Steam automatically once a title is present.
+3. Pick the closest match and click **Apply to game**. Title, developer, year, genres, synopsis, cover, and hero artwork are filled in together.
+4. Use the separate **Cover** and **Hero** buttons if you only want one image.
+5. Add optional IGDB credentials or a RAWG key under **Settings -> Artwork sources** for extra search coverage.
 
 ### Folder scan
 

@@ -438,7 +438,7 @@ function registerIpc(): void {
     const parsedUrl = parseInput(z.string().url().max(2_000), url)
     const parsedKind = parseInput(artworkKindSchema, kind)
     try {
-      const { buffer, ext } = await downloadImageBuffer(parsedUrl)
+      const { buffer, ext } = await downloadImageBuffer(parsedUrl, parsedKind)
       return store.importArtworkFromBuffer(buffer, ext, parsedKind)
     } catch {
       return null

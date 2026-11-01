@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  Search,
-  Download,
-  CheckCircle2,
   AlertCircle,
+  Check,
+  CheckCircle2,
+  Download,
+  Image as ImageIcon,
   LoaderCircle,
-  Sparkles,
   RefreshCw,
-  Image as ImageIcon
+  Search,
+  Sparkles
 } from 'lucide-react'
 import type { ArtworkCandidate } from '@shared/types'
 import { useOrcaStore } from '../store'
@@ -20,6 +21,15 @@ interface Props {
   igdbConfigured?: boolean
 }
 
+type SearchStatus = 'idle' | 'loading' | 'error' | 'done'
+type AppliedState = { all?: boolean; cover?: boolean; hero?: boolean }
+
+const SOURCE_LABELS: Record<ArtworkCandidate['source'], string> = {
+  steam: 'Steam',
+  igdb: 'IGDB',
+  rawg: 'RAWG'
+}
+
 export function ArtworkSearchPanel({
   initialQuery,
   onApplyAll,
@@ -29,262 +39,346 @@ export function ArtworkSearchPanel({
 }: Props): React.JSX.Element {
   const [query, setQuery] = useState(initialQuery)
   const [candidates, setCandidates] = useState<ArtworkCandidate[]>([])
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'done'>('idle')
+  const [status, setStatus] = useState<SearchStatus>('idle')
   const [error, setError] = useState('')
-  const [applyingAll, setApplyingAll] = useState<string | null>(null)
-  const [appliedCards, setAppliedCards] = useState<Record<string, boolean>>({})
-  const addToast = useOrcaStore((s) => s.addToast)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [applied, setApplied] = useState<Record<string, AppliedState>>({})
+  const [failedImages, setFailedImages] = useState<Record<string, number>>({})
+  const addToast = useOrcaStore((state) => state.addToast)
+  const autoSearched = useRef(false)
+  const requestSequence = useRef(0)
 
-  async function doSearch(searchTarget?: string): Promise<void> {
-    const q = (searchTarget ?? query).trim()
-    if (!q) return
+  async function runSearch(target?: string): Promise<void> {
+    const nextQuery = (target ?? query).trim()
+    if (!nextQuery) return
+    const requestId = requestSequence.current + 1
+    requestSequence.current = requestId
     setStatus('loading')
     setError('')
     setCandidates([])
+    setApplied({})
+    setFailedImages({})
     try {
-      const result = await window.orca.fetchArtwork(q)
+      const result = await window.orca.fetchArtwork(nextQuery)
+      if (requestSequence.current !== requestId) return
       if (result.error && result.candidates.length === 0) {
         setStatus('error')
         setError(result.error)
-      } else {
-        setCandidates(result.candidates)
-        setStatus('done')
-        if (result.error) {
-          setError(result.error)
-        }
+        return
       }
-    } catch (e) {
+      setCandidates(result.candidates)
+      setStatus('done')
+      if (result.error) setError(result.error)
+    } catch (caught) {
+      if (requestSequence.current !== requestId) return
       setStatus('error')
-      setError(e instanceof Error ? e.message : 'Search failed')
+      setError(caught instanceof Error ? caught.message : 'The artwork search failed.')
     }
   }
 
-  // Auto-search once if opened with a non-empty initial query
   useEffect(() => {
-    if (initialQuery.trim() && status === 'idle' && candidates.length === 0) {
-      void doSearch(initialQuery.trim())
-    }
+    if (autoSearched.current) return
+    const trimmed = initialQuery.trim()
+    if (!trimmed) return
+    autoSearched.current = true
+    void runSearch(trimmed)
+    // Auto-search once with the title the modal was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery])
 
-  async function handleApplyAll(candidate: ArtworkCandidate): Promise<void> {
-    setApplyingAll(candidate.id)
+  function markApplied(id: string, patch: AppliedState): void {
+    setApplied((current) => ({ ...current, [id]: { ...current[id], ...patch } }))
+  }
+
+  async function applyEverything(candidate: ArtworkCandidate): Promise<void> {
+    if (busy) return
+    setBusy(`${candidate.id}:all`)
     try {
       await onApplyAll(candidate)
-      setAppliedCards((prev) => ({ ...prev, [candidate.id]: true }))
-      addToast(`Applied "${candidate.title}" artwork & details to form!`, 'success')
-    } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Failed to apply details')
+      markApplied(candidate.id, {
+        all: true,
+        cover: Boolean(candidate.coverUrl),
+        hero: Boolean(candidate.heroUrl)
+      })
+      addToast(`Applied ${candidate.title} artwork and details.`, 'success')
+    } catch (caught) {
+      addToast(caught instanceof Error ? caught.message : 'The game details could not be applied.')
     } finally {
-      setApplyingAll(null)
+      setBusy(null)
     }
   }
 
-  async function handleApplyCoverOnly(candidate: ArtworkCandidate): Promise<void> {
-    if (!candidate.coverUrl) return
+  async function applyCoverOnly(candidate: ArtworkCandidate): Promise<void> {
+    if (!candidate.coverUrl || busy) return
+    setBusy(`${candidate.id}:cover`)
     try {
       const key = await window.orca.importArtworkUrl(candidate.coverUrl, 'cover')
       if (key) {
         onApplyCover(key)
+        markApplied(candidate.id, { cover: true })
         addToast('Cover artwork applied.', 'success')
+      } else {
+        addToast('That cover could not be downloaded.')
       }
-    } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Cover download failed')
+    } catch (caught) {
+      addToast(caught instanceof Error ? caught.message : 'The cover could not be downloaded.')
+    } finally {
+      setBusy(null)
     }
   }
 
-  async function handleApplyHeroOnly(candidate: ArtworkCandidate): Promise<void> {
-    if (!candidate.heroUrl) return
+  async function applyHeroOnly(candidate: ArtworkCandidate): Promise<void> {
+    if (!candidate.heroUrl || busy) return
+    setBusy(`${candidate.id}:hero`)
     try {
       const key = await window.orca.importArtworkUrl(candidate.heroUrl, 'hero')
       if (key) {
         onApplyHero(key)
-        addToast('Hero background artwork applied.', 'success')
+        markApplied(candidate.id, { hero: true })
+        addToast('Hero artwork applied.', 'success')
+      } else {
+        addToast('That hero artwork could not be downloaded.')
       }
-    } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Hero download failed')
+    } catch (caught) {
+      addToast(caught instanceof Error ? caught.message : 'The hero artwork could not be downloaded.')
+    } finally {
+      setBusy(null)
     }
   }
 
   return (
-    <div className="form-section artwork-tab-section">
-      <div className="field">
-        <span>Search online database</span>
-        <div className="field-row" style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
-          <input
-            className="text-input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void doSearch()
-            }}
-            placeholder="Search by game title (e.g. Metro 2033 Redux, Hades)..."
-            aria-label="Search game title"
-          />
-          <button
-            className="button button--primary"
-            type="button"
-            style={{ flexShrink: 0, minWidth: '130px', height: '44px' }}
-            disabled={status === 'loading' || !query.trim()}
-            onClick={() => void doSearch()}
-          >
-            {status === 'loading' ? (
-              <LoaderCircle size={16} className="spin" />
-            ) : (
-              <Search size={16} />
-            )}
-            {status === 'loading' ? 'Searching…' : 'Search'}
-          </button>
+    <div className="artwork-panel">
+      <div className="artwork-panel__search">
+        <div className="field">
+          <span>Find artwork and details</span>
+          <div className="artwork-panel__search-row">
+            <div className="artwork-panel__input">
+              <Search size={15} />
+              <input
+                id="artwork-search-query"
+                className="text-input"
+                value={query}
+                aria-label="Find artwork and details"
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    void runSearch()
+                  }
+                }}
+                placeholder="Search by game title…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={status === 'loading' || !query.trim()}
+              onClick={() => void runSearch()}
+            >
+              {status === 'loading' ? (
+                <LoaderCircle size={15} className="spin" />
+              ) : (
+                <Search size={15} />
+              )}
+              {status === 'loading' ? 'Searching' : 'Search'}
+            </button>
+          </div>
+        </div>
+
+        <div className="artwork-panel__tip">
+          <span className="artwork-panel__tip-icon">
+            <Sparkles size={14} />
+          </span>
+          <div>
+            <strong>{igdbConfigured ? 'IGDB and Steam are connected.' : 'Steam search works with no setup.'}</strong>
+            <span>
+              Applying a match fills the title, developer, year, genres and description, then
+              downloads its cover and hero artwork.
+            </span>
+          </div>
         </div>
       </div>
 
-      <div
-        className="form-callout"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '12px 16px',
-          margin: '4px 0 16px'
-        }}
-      >
-        <Sparkles size={16} style={{ color: '#2dd4bf', flexShrink: 0 }} />
-        <div style={{ flex: 1, fontSize: '12.5px', color: 'rgba(255, 255, 255, 0.75)' }}>
-          {igdbConfigured ? (
-            <span>
-              <strong>IGDB & Steam active.</strong> Selecting a game automatically imports 4K hero art, covers, developer, release year, genres, and synopsis.
-            </span>
-          ) : (
-            <span>
-              <strong>Steam search active (Zero setup).</strong> Selecting a game automatically downloads artwork and fills in all details. (For Twitch 1080p art, connect IGDB in Settings).
-            </span>
-          )}
-        </div>
-      </div>
-
-      {status === 'error' && (
-        <div className="form-error" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {error && status !== 'loading' && (
+        <div className="artwork-panel__message is-error" role="alert">
           <AlertCircle size={15} />
           <span>{error}</span>
-          <button
-            className="text-button text-button--small"
-            type="button"
-            onClick={() => void doSearch()}
-            style={{ marginLeft: 'auto' }}
-          >
-            <RefreshCw size={13} /> Retry
+          <button className="text-button text-button--small" type="button" onClick={() => void runSearch()}>
+            <RefreshCw size={12} /> Retry
           </button>
         </div>
       )}
 
       {status === 'loading' && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '40px 0', color: 'rgba(255, 255, 255, 0.6)' }}>
-          <LoaderCircle size={22} className="spin" style={{ color: '#2dd4bf' }} />
-          <span>Searching game database & artwork...</span>
+        <div className="artwork-panel__loading" role="status">
+          <LoaderCircle size={20} className="spin" />
+          <div>
+            <strong>Searching the store</strong>
+            <span>Matching artwork, release details and synopsis…</span>
+          </div>
+        </div>
+      )}
+
+      {status === 'idle' && (
+        <div className="artwork-panel__empty">
+          <span className="artwork-panel__empty-icon">
+            <ImageIcon size={22} />
+          </span>
+          <strong>Start with a title</strong>
+          <p>Search for the game and pick the closest match. Orca does the rest.</p>
         </div>
       )}
 
       {status === 'done' && candidates.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255, 255, 255, 0.5)' }}>
-          <ImageIcon size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
-          <p>No games found for &ldquo;{query}&rdquo;. Check spelling or try a shorter title.</p>
+        <div className="artwork-panel__empty">
+          <span className="artwork-panel__empty-icon">
+            <Search size={22} />
+          </span>
+          <strong>No matches for “{query}”</strong>
+          <p>Try the base game title or a shorter spelling.</p>
         </div>
       )}
 
       {candidates.length > 0 && (
-        <div className="field">
-          <span>Search results ({candidates.length}) — Click &ldquo;Apply to Game&rdquo; to auto-fill details</span>
-          <div className="artwork-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '6px' }}>
-            {candidates.map((c) => {
-              const isApplied = appliedCards[c.id]
-              const isApplying = applyingAll === c.id
+        <div className="artwork-panel__results">
+          <div className="artwork-panel__results-head">
+            <span>Matches</span>
+            <span>
+              {candidates.length} {candidates.length === 1 ? 'result' : 'results'}
+            </span>
+          </div>
 
+          <div className="artwork-panel__list">
+            {candidates.map((candidate) => {
+              const state = applied[candidate.id] ?? {}
+              const imageFailures = failedImages[candidate.id] ?? 0
+              const coverSrc =
+                imageFailures === 0
+                  ? candidate.coverUrl
+                  : imageFailures === 1 && candidate.source === 'steam' && candidate.steamAppId
+                    ? `https://cdn.akamai.steamstatic.com/steam/apps/${candidate.steamAppId}/header.jpg`
+                    : null
               return (
-                <div
-                  key={c.id}
-                  className={`artwork-candidate-card ${isApplied ? 'is-selected-card' : ''}`}
+                <article
+                  className={`artwork-result ${state.all ? 'is-applied' : ''}`}
+                  key={candidate.id}
                 >
-                  <div className="artwork-candidate-card__art">
-                    {c.coverUrl ? (
-                      <img src={c.coverUrl} alt={c.title} loading="lazy" />
+                  <div className="artwork-result__art">
+                    {coverSrc ? (
+                      <img
+                        src={coverSrc}
+                        alt=""
+                        loading="lazy"
+                        draggable={false}
+                        onError={() =>
+                          setFailedImages((current) => ({
+                            ...current,
+                            [candidate.id]: (current[candidate.id] ?? 0) + 1
+                          }))
+                        }
+                      />
                     ) : (
-                      <div className="artwork-candidate-card__placeholder">No Art</div>
+                      <span className="artwork-result__art-fallback">
+                        <ImageIcon size={18} />
+                        No art
+                      </span>
+                    )}
+                    {candidate.heroUrl && (
+                      <span className="artwork-result__hero-badge">Hero</span>
                     )}
                   </div>
 
-                  <div className="artwork-candidate-card__info">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <strong className="artwork-candidate-card__title">{c.title}</strong>
-                      <span
-                        className="badge"
-                        style={{
-                          fontSize: '10px',
-                          textTransform: 'uppercase',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          background: c.source === 'igdb' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(2, 132, 199, 0.2)',
-                          color: c.source === 'igdb' ? '#c084fc' : '#38bdf8',
-                          border: `1px solid ${c.source === 'igdb' ? 'rgba(168, 85, 247, 0.4)' : 'rgba(2, 132, 199, 0.4)'}`
-                        }}
-                      >
-                        {c.source}
+                  <div className="artwork-result__body">
+                    <div className="artwork-result__heading">
+                      <div>
+                        <h4>{candidate.title}</h4>
+                        <div className="artwork-result__meta">
+                          {[candidate.developer, candidate.releaseYear].filter(Boolean).join(' · ') ||
+                            'Details unavailable'}
+                        </div>
+                      </div>
+                      <span className={`artwork-result__source is-${candidate.source}`}>
+                        {SOURCE_LABELS[candidate.source]}
                       </span>
                     </div>
 
-                    <div className="artwork-candidate-card__meta">
-                      {c.developer && <span>{c.developer}</span>}
-                      {c.releaseYear && <span>• {c.releaseYear}</span>}
-                      {c.genres && c.genres.length > 0 && <span>• {c.genres.slice(0, 3).join(', ')}</span>}
-                    </div>
-
-                    {c.summary && (
-                      <p className="artwork-candidate-card__synopsis">
-                        {c.summary}
-                      </p>
+                    {candidate.genres && candidate.genres.length > 0 && (
+                      <div className="artwork-result__genres">
+                        {candidate.genres.slice(0, 4).map((genre) => (
+                          <span key={genre}>{genre}</span>
+                        ))}
+                      </div>
                     )}
-                  </div>
 
-                  <div className="artwork-candidate-card__actions">
-                    <button
-                      className={`button ${isApplied ? 'button--ghost' : 'button--primary'}`}
-                      type="button"
-                      disabled={isApplying}
-                      onClick={() => void handleApplyAll(c)}
-                      title="Import cover & hero art, and auto-fill developer, year, genres and description in Details tab"
-                    >
-                      {isApplying ? (
-                        <LoaderCircle size={14} className="spin" />
-                      ) : isApplied ? (
-                        <CheckCircle2 size={14} style={{ color: '#4ade80' }} />
-                      ) : (
-                        <Sparkles size={14} />
-                      )}
-                      {isApplying ? 'Applying…' : isApplied ? 'Applied to details' : 'Apply to game'}
-                    </button>
+                    {candidate.summary && (
+                      <p className="artwork-result__summary">{candidate.summary}</p>
+                    )}
 
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {c.coverUrl && (
-                        <button
-                          className="button button--glass button--sm"
-                          type="button"
-                          onClick={() => void handleApplyCoverOnly(c)}
-                          title="Apply cover image only"
-                        >
-                          <Download size={12} /> Cover only
-                        </button>
-                      )}
-                      {c.heroUrl && (
-                        <button
-                          className="button button--glass button--sm"
-                          type="button"
-                          onClick={() => void handleApplyHeroOnly(c)}
-                          title="Apply hero wallpaper only"
-                        >
-                          <Download size={12} /> Hero only
-                        </button>
+                    <div className="artwork-result__actions">
+                      <button
+                        className={`button button--small ${
+                          state.all ? 'button--applied' : 'button--primary'
+                        }`}
+                        type="button"
+                        disabled={Boolean(busy)}
+                        onClick={() => void applyEverything(candidate)}
+                      >
+                        {busy === `${candidate.id}:all` ? (
+                          <LoaderCircle size={13} className="spin" />
+                        ) : state.all ? (
+                          <CheckCircle2 size={13} />
+                        ) : (
+                          <Sparkles size={13} />
+                        )}
+                        {busy === `${candidate.id}:all`
+                          ? 'Applying…'
+                          : state.all
+                            ? 'Applied to form'
+                            : 'Apply to game'}
+                      </button>
+
+                      <button
+                        className="button button--ghost button--small"
+                        type="button"
+                        disabled={!candidate.coverUrl || Boolean(busy)}
+                        onClick={() => void applyCoverOnly(candidate)}
+                      >
+                        {busy === `${candidate.id}:cover` ? (
+                          <LoaderCircle size={12} className="spin" />
+                        ) : state.cover ? (
+                          <Check size={12} />
+                        ) : (
+                          <Download size={12} />
+                        )}
+                        Cover
+                      </button>
+
+                      <button
+                        className="button button--ghost button--small"
+                        type="button"
+                        disabled={!candidate.heroUrl || Boolean(busy)}
+                        onClick={() => void applyHeroOnly(candidate)}
+                      >
+                        {busy === `${candidate.id}:hero` ? (
+                          <LoaderCircle size={12} className="spin" />
+                        ) : state.hero ? (
+                          <Check size={12} />
+                        ) : (
+                          <Download size={12} />
+                        )}
+                        Hero
+                      </button>
+
+                      {state.all && (
+                        <span className="artwork-result__applied-note">
+                          <Check size={11} /> Details filled
+                        </span>
                       )}
                     </div>
                   </div>
-                </div>
+                </article>
               )
             })}
           </div>
