@@ -1,0 +1,38 @@
+appId: app.orca.launcher
+productName: Orca
+copyright: Copyright © 2026 Orca
+directories:
+  buildResources: build
+  output: release
+files:
+  - out/**/*
+  - package.json
+  - resources/icon.png
+asarUnpack:
+  - node_modules/koffi/**/*
+  - node_modules/@koromix/**/*
+extraResources:
+  - from: resources/tray
+    to: tray
+win:
+  executableName: Orca
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  shortcutName: Orca
+  uninstallDisplayName: Orca
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
