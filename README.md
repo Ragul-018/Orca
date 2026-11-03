@@ -1,229 +1,195 @@
-﻿# Orca 🐋
+﻿<div align="center">
 
-> A local-first game library, launcher, and playtime tracker for Windows.  
-> PlayStation-inspired visual identity. No account required. No telemetry.
+<img src="resources/icon.png" width="104" alt="Orca logo" />
+
+# Orca
+
+**Your games, one quiet place.**
+
+A local-first game library, launcher, and playtime tracker for Windows.<br />
+Console-inspired. No account. No telemetry.
+
+[![Latest release](https://img.shields.io/github/v/release/Ragul-018/Orca?style=flat-square&color=0070CC)](https://github.com/Ragul-018/Orca/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Ragul-018/Orca/total?style=flat-square&color=0070CC)](https://github.com/Ragul-018/Orca/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0070CC?style=flat-square)](#requirements)
+[![License](https://img.shields.io/badge/license-MIT-0070CC?style=flat-square)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-45-0070CC?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+
+**[Download](#download)** · **[Features](#features)** · **[Screens](#screens)** · **[Build from source](#build-from-source)** · **[Data & privacy](#data--privacy)**
+
+</div>
+
+![Orca home screen](docs/screenshots/home.jpg)
 
 ---
 
 ## Download
 
-Grab the latest build from the [Releases page](https://github.com/Ragul-018/Orca/releases/latest):
+|  | File | Description |
+|:--|:-----|:------------|
+| 🖥️ | **[Orca-1.0.0-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
+| 🎒 | **[Orca-1.0.0-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
 
-| Download | Description |
-|----------|-------------|
-| `Orca-1.0.0-x64.exe` | **Recommended.** Installs Orca for your user, adds Start menu and desktop shortcuts, and can be uninstalled from Windows Settings. |
-| `Orca-1.0.0-portable.exe` | Single file, no installation. |
+### Install
 
-> The installer is currently unsigned, so Windows SmartScreen may show a warning. Choose **More info → Run anyway** to continue.
+1. Download **`Orca-1.0.0-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
+2. Run it, choose an install folder, and finish the wizard.
+3. Open **Orca** from the Start menu or desktop shortcut.
+
+> [!NOTE]
+> The build is currently unsigned, so Windows SmartScreen may warn you. Choose **More info → Run anyway**.
+
+### Requirements
+
+- Windows 10 or 11, x64
+- Nothing else — Node.js is **not** required for the installer
+
+---
+
+## Screens
+
+| Home | Library |
+|:----:|:-------:|
+| ![Home screen with a full-bleed hero and game rail](docs/screenshots/home.jpg) | ![Library grid with cover artwork](docs/screenshots/library.jpg) |
+| **Game details** | **Playtime** |
+| ![Game detail page with hero artwork and playtime](docs/screenshots/game-detail.jpg) | ![Playtime dashboard with weekly chart](docs/screenshots/playtime.jpg) |
+
+<p align="center">
+  <img src="docs/screenshots/search.jpg" width="72%" alt="Ctrl+K search overlay" />
+</p>
 
 ---
 
 ## Features
 
-- **Library** — Add games manually or scan a folder. Supports `.exe`, `.bat`, `.cmd`, `.lnk`, and `.url` shortcuts.
-- **Artwork search** — Look up a title on Steam with no API key (IGDB and RAWG keys optional) and apply a match to fill the title, developer, year, genres, synopsis, cover, and hero artwork in one click.
-- **PS5-style home** — Full-bleed artwork, a horizontal game rail, game icons that scale when selected, and playtime panels that stay out of the way.
-- **Console navigation** — Browse the home rail with the arrow keys and hear a subtle PlayStation-style blip on every move.
-- **Launcher** — Launches any Windows executable. Tracks the process tree so child processes count as playtime, and stops only the PIDs it started.
-- **Playtime tracking** — Measures exact wall-clock time from launch to stop (or natural exit). Persisted immediately.
-- **Stats dashboard** — Weekly bar chart, all-time totals, session log, and per-game history.
-- **Favourites** — Star any game and filter the library down to it.
-- **Search** — `Ctrl+K` fuzzy overlay, searches title, developer, and tags.
-- **Settings** — Minimize on launch, close-to-tray, stop confirmation, external-game tracking toggle.
-- **System tray** — Minimises to tray; right-click for quick launch, restore, and quit.
-- **No cloud, no login** — All data lives in a single JSON file on your machine.
+### Library
+
+- **Automatic artwork & metadata** — search Steam with no API key and fill the title, developer, year, genres, synopsis, cover, and hero art in one click. IGDB and RAWG keys are optional extras.
+- **Folder scan** — point Orca at a directory and it picks up `.exe`, `.lnk`, `.url`, `.bat`, and `.cmd` files, resolving shortcuts and extracting embedded icons.
+- **Favourites, filters, ratings, and status** — spotlight what matters and keep a real backlog.
+- **Manual import** — add anything with a title, executable path, and optional launch arguments.
+
+### Play & track
+
+- **Accurate playtime** — wall-clock sessions from launch to stop or natural exit, written to disk the moment a session ends.
+- **Safe game termination** — Orca tracks the exact process IDs it launched and stops only those. It never runs a broad `taskkill /IM`.
+- **External-game tracking** — optionally detect games launched from the desktop or another launcher.
+- **Stats dashboard** — weekly rhythm, all-time totals, recent sessions, and per-game history.
+
+### Interface
+
+- **Console-style home** — full-bleed artwork, a horizontal game rail, and a focused tile that scales up as you browse.
+- **Navigation sound** — a subtle console blip on every arrow-key move through the rail.
+- **Keyboard-first** — browse with the arrow keys, `Enter` to play, and `Ctrl+K` for fuzzy search.
+- **System tray** — close to the tray and keep tracking in the background.
 
 ---
 
-## Requirements
+## Build from source
 
-| Requirement | Version |
-|-------------|---------|
-| Windows | 10 x64 or later |
+### Prerequisites
+
+| Tool | Version |
+|------|---------|
 | Node.js | 20 LTS or later |
 | pnpm | 9 or later |
 
-> **Note:** Orca uses [koffi](https://koffi.dev/) for fast native Windows process enumeration (no PowerShell polling). The native binary is pre-bundled and does **not** require a C++ build toolchain.
-
----
-
-## Quick Start (Development)
-
 ```powershell
-# 1. Install dependencies
+git clone https://github.com/Ragul-018/Orca.git
+cd Orca
 pnpm install
-
-# 2. Start the dev server (hot-reload renderer + live main reload)
 pnpm dev
 ```
 
-The app window opens automatically. Press `Ctrl+K` to search, `Ctrl+Shift+I` to open DevTools.
+The window opens automatically. `Ctrl+Shift+I` opens DevTools.
 
----
+> Orca uses [koffi](https://koffi.dev/) for native Windows process enumeration, so there is no PowerShell polling. The native binary ships prebuilt — no C++ toolchain needed.
 
-## Build and Package
+### Commands
 
-```powershell
-# Type-check + compile only (no installer)
-pnpm build
+| Command | What it does |
+|---------|--------------|
+| `pnpm dev` | Dev server with hot reload |
+| `pnpm build` | Type-check and compile to `out/` |
+| `pnpm build:win` | Build the NSIS installer and portable `.exe` |
+| `pnpm build:dir` | Build `release/win-unpacked/` only (fast) |
+| `pnpm smoke` | Playwright smoke test against the built app |
+| `pnpm smoke:pkg` | Smoke test against the packaged executable |
 
-# Type-check + compile + build Windows installer + portable exe
-pnpm build:win
-
-# Type-check + compile + build win-unpacked directory only (faster, no installer)
-pnpm build:dir
-```
-
-Outputs land in `release/`:
+Artifacts land in `release/`:
 
 | File | Description |
 |------|-------------|
 | `Orca-1.0.0-x64.exe` | NSIS installer (per-user, optional install dir) |
 | `Orca-1.0.0-portable.exe` | Single-file portable executable |
-| `win-unpacked/Orca.exe` | Unpacked directory build for testing |
+| `win-unpacked/Orca.exe` | Unpacked build for testing |
+
+### Adding games
+
+1. Click **Add game** in the top bar.
+2. Fill in the **Details** tab — only the title is required.
+3. Open the **Artwork** tab and pick a Steam match; **Apply to game** fills every empty field.
+4. Switch to **Launch setup**, choose the executable, and click **Add to Orca**.
+
+| Type | Launched as |
+|------|-------------|
+| `.exe` | Direct executable |
+| `.lnk` | Resolved Windows shortcut |
+| `.url` | URI opened through the shell |
+| `.bat` / `.cmd` | `cmd.exe /c` |
+
+### Smoke test coverage
+
+1. Preload API is present.
+2. Empty state renders on first run.
+3. Add-game modal accepts and saves every field.
+4. Home, Library, Game, Search, Stats, and Settings all render.
+5. Play launches the target process.
+6. `koffi` process-tree tracking fires the running chip.
+7. Stop confirmation closes immediately and finalises the session.
+8. Playtime and sessions persist to `orca-data.json`.
+9. Stats shows the recorded session.
+10. No console or page errors.
+
+Screenshots are written to `%TEMP%\orca-smoke-<dev|packaged>\`.
 
 ---
 
-## Running the Packaged App
+## Data & privacy
 
-```powershell
-# Via installer
-.\release\Orca-1.0.0-x64.exe
-
-# Via portable (runs in-place)
-.\release\Orca-1.0.0-portable.exe
-
-# Via unpacked directory (fastest for iteration)
-.\release\win-unpacked\Orca.exe
-```
-
----
-
-## Data Location
-
-By default Orca stores everything under Electron's `userData` directory:
+Orca is local-first by design. You do not need an account, and nothing is sent to a server except the artwork/ metadata searches you explicitly trigger.
 
 ```
-%APPDATA%\Orca\
+%APPDATA%\orca\
   data\
-    library.json   <- games, settings, sessions (atomic writes)
-    art\           <- imported artwork (png/jpg/webp/gif)
+    orca-data.json   # games, settings, sessions (atomic writes)
+    art\             # imported covers and hero images
 ```
 
-### Override with ORCA_USER_DATA
+- **Atomic saves** — writes go to a temp file and are renamed, so a crash cannot leave a half-written library.
+- **API keys stay local** — optional IGDB/RAWG credentials never leave your machine.
+- **Uninstalling keeps your library** — data is only removed if you delete `%APPDATA%\orca\` yourself.
 
-Set this environment variable **before** launching to redirect all data to a different directory.
-Useful for running multiple isolated libraries, automated smoke tests, or keeping data on another drive.
+### Custom data location
 
 ```powershell
 $env:ORCA_USER_DATA = "D:\MyGames\OrcaData"
 .\release\win-unpacked\Orca.exe
 ```
 
-The directory is created automatically if it does not exist.
+The directory is created automatically. Useful for portable libraries, isolated test runs, or data on another drive.
 
 ---
 
-## Smoke Tests
+## Keyboard shortcuts
 
-Orca ships a Playwright Electron smoke test that exercises the full add -> launch -> track -> persist flow.
-
-### Against the built (dev) app
-
-```powershell
-pnpm build   # compile first if needed
-pnpm smoke
-```
-
-### Against the packaged executable
-
-```powershell
-pnpm build:dir   # or pnpm build:win
-pnpm smoke:pkg
-```
-
-The packaged runner accepts an explicit executable path too:
-`node scripts/smoke.mjs release\win-unpacked\Orca.exe`. `ORCA_EXE` still overrides it.
-
-Screenshots are saved to `%TEMP%\orca-smoke-<dev|packaged>\` after each run.
-Test data is isolated to `%TEMP%\orca-smoke-<dev|packaged>-data\` and deleted at the start of each run.
-
-**What the smoke test verifies:**
-
-1. Preload API (`window.orca`) is present.
-2. Empty state renders on first run.
-3. Add-game modal accepts all fields and saves.
-4. Home, Library, Game detail, Search overlay, Stats, and Settings pages all render.
-5. Play button launches the target process.
-6. `koffi` process-tree tracking fires the running chip.
-7. Stop + confirm dialog closes immediately and finalises the session.
-8. `playtimeMs` and `sessions` are persisted to `library.json`.
-9. Stats page shows the recorded session.
-10. No console errors or uncaught page errors throughout.
-
----
-
-## Adding Games
-
-### Manually
-
-1. Click **Add game** (or the `+` button in the top bar).
-2. Fill in the **Details** tab — title is the only required field.
-3. Switch to **Launch setup** and paste or browse to the `.exe` path.
-4. Optionally add launch arguments (e.g. `-windowed -novid`).
-5. Click **Add to Orca**.
-
-### Automatic artwork and details
-
-1. Click **Add game** and type the game title.
-2. Open the **Artwork** tab — Orca searches Steam automatically once a title is present.
-3. Pick the closest match and click **Apply to game**. Title, developer, year, genres, synopsis, cover, and hero artwork are filled in together.
-4. Use the separate **Cover** and **Hero** buttons if you only want one image.
-5. Add optional IGDB credentials or a RAWG key under **Settings -> Artwork sources** for extra search coverage.
-
-### Folder scan
-
-1. Open **Settings**.
-2. Click **Scan folder** and pick a directory.
-3. Orca inspects every `.exe` / `.lnk` / `.url` it finds, resolves shortcuts, and extracts embedded icons as cover art.
-4. Duplicates (matched by executable path) are skipped.
-
-### Supported executable types
-
-| Type | Notes |
-|------|-------|
-| `.exe` | Direct executable |
-| `.lnk` | Windows shortcut — resolved to target |
-| `.url` | Internet shortcut — target URI launched via shell.openExternal |
-| `.bat` / `.cmd` | Batch files — launched via `cmd.exe /c` |
-
----
-
-## Playtime Tracking
-
-Orca tracks playtime by watching the **process tree** rooted at the launched PID.
-A session ends when you click **Stop** or when the root process and all children exit naturally.
-
-The total wall-clock duration (in milliseconds) is written to `library.json` atomically the moment a session ends.
-
-### External-game tracking
-
-Disabled by default. When enabled (Settings -> Tracking), Orca also watches for processes whose executable path matches a game already in your library, even if launched outside Orca.
-Disable this if generic executables (e.g., `cmd.exe`) cause false positives.
-
-### Session record format
-
-```jsonc
-{
-  "id": "uuid",
-  "gameId": "uuid",
-  "startedAt": "2026-10-31T14:51:41.506Z",
-  "endedAt": "2026-10-31T14:51:47.802Z",
-  "durationMs": 6296,
-  "source": "launcher",   // "launcher" | "external"
-  "endReason": "stopped"  // "stopped" | "exited"
-}
-```
+| Shortcut | Action |
+|----------|--------|
+| `←` `→` / `↑` `↓` | Browse the home game rail |
+| `Enter` | Play / stop the focused game |
+| `Ctrl+K` | Search your library |
+| `Escape` | Close an overlay or dialog |
+| `Alt+F4` | Quit Orca |
 
 ---
 
@@ -231,91 +197,63 @@ Disable this if generic executables (e.g., `cmd.exe`) cause false positives.
 
 ```
 src/
-  main/                  Electron main process (Node.js / ESM)
-    index.ts             App lifecycle, IPC handlers, tray, custom protocol
+  main/                  Electron main process (ESM)
+    index.ts             Lifecycle, IPC, tray, orca-art protocol
     data-store.ts        JSON persistence, atomic writes, artwork import
-    session-manager.ts   Launch, process-tree poll, session finalise
-    processes-win32.ts   koffi-based Windows process snapshot
+    session-manager.ts   Launch, process-tree polling, safe termination
+    processes-win32.ts   koffi-based process snapshots
     scanner.ts           Folder scan, .lnk/.url resolution, icon extraction
   preload/               CJS bridge (sandbox: true)
-    index.ts             -> out/preload/index.cjs
   renderer/              React + Vite SPA
-    src/
-      store/             Zustand store (single source of truth)
-      pages/             HomePage, LibraryPage, GamePage, StatsPage, SettingsPage
-      components/        GameCard, TopBar, AddGameModal, WeekChart, Toast ...
-      styles/
-        global.css       Full design system (tokens, layout, components)
-  shared/                Types, constants, formatters (imported by main + renderer)
-scripts/
-  smoke.mjs              Playwright Electron smoke test
-  make-icon.mjs          Generates build/icon.ico from resources/icon.png
+    src/pages/           Home, Library, Game, Playtime, Settings
+    src/components/      Rail, artwork, search, toasts, dialogs
+    src/styles/          Design system and layout
+  shared/                Types, constants, formatters
+scripts/                 Smoke test, icon build, README screenshots
 ```
 
-### Custom artwork protocol
-
-Artwork is served via the `orca-art://` scheme so the renderer can load local files without relaxing CSP or using `file://` URLs directly:
+Artwork is served over a custom `orca-art://` protocol, so local files load without weakening the renderer CSP:
 
 ```
-orca-art://art/<sha256-key>  ->  userData/data/art/<key>.{png,jpg,webp,gif}
+orca-art://art/<sha256>  ->  %APPDATA%\orca\data\art\<sha256>.{png,jpg,webp,gif}
 ```
 
-### Data persistence
-
-`DataStore` writes to `userData/data/library.json` using an atomic write pattern:
-1. Serialise to JSON.
-2. Write to `library.json.tmp`.
-3. `fs.rename` (atomic on Windows NTFS) to `library.json`.
-
-Corrupted or missing files fall back to an empty library on startup.
-
----
-
-## Tech Stack
+### Tech stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Shell | Electron 45 |
-| Renderer | React 19 + Vite 7 |
+| UI | React 19 + Vite 7 |
 | Language | TypeScript 5.9 |
-| Build pipeline | electron-vite 6 |
 | State | Zustand 5 |
-| Animations | Motion (Framer Motion) |
-| Native APIs | koffi 3 (process snapshots) |
+| Motion | Motion |
+| Native APIs | koffi 3 |
 | Packaging | electron-builder 26 |
 | Testing | Playwright Core |
-| Font | Manrope Variable (@fontsource-variable) |
+| Type | Manrope Variable |
 
 ---
 
-## Keyboard Shortcuts
+## Known limitations
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+K` | Open search overlay |
-| `Escape` | Close overlay / modal |
-| `Enter` (in search) | Navigate to first result |
-
----
-
-## Known Limitations
-
-- **Windows only.** `koffi` process enumeration uses the Win32 `TlHelp32` API. macOS/Linux are not supported.
-- **No automatic game detection.** Steam, Epic, GOG, and Xbox App libraries are not auto-imported; add games manually or via folder scan.
-- **External-process tracking false positives.** Generic executables (e.g., `cmd.exe`) can be mistakenly matched. Disable external tracking if this is a problem.
-- **asar size.** The packaged `app.asar` is ~56 MB because some renderer-only dependencies are listed under `dependencies` rather than `devDependencies`. This does not affect functionality.
+- **Windows only** — process enumeration uses the Win32 `TlHelp32` API.
+- **No store auto-import** — Steam, Epic, GOG, and Xbox libraries are not imported automatically; use manual add or folder scan.
+- **External tracking false positives** — generic executables like `cmd.exe` can match; disable the setting if that happens.
+- **Unsigned builds** — SmartScreen warnings are expected until a code-signing certificate is added.
 
 ---
 
-## Environment Variables
+## Contributing
 
-| Variable | Description |
-|----------|-------------|
-| `ORCA_USER_DATA` | Override Electron userData path (must be set before launch) |
-| `ORCA_EXE` | Path to packaged `.exe`; switches `smoke.mjs` to packaged mode |
+Issues and pull requests are welcome. Before opening a PR, run:
+
+```powershell
+pnpm typecheck
+pnpm smoke
+```
 
 ---
 
 ## License
 
-MIT (c) 2026 Orca
+[MIT](LICENSE) © 2026 Orca
