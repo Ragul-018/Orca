@@ -5307,7 +5307,11 @@ kbd {
   display: flex;
   align-items: flex-end;
   gap: 18px;
-  padding: 34px 2px 10px;
+  /* The negative margin widens the scroll clip box so the scaled selected
+     tile is never cut off, while the padding keeps the tiles flush with the
+     shelf heading. */
+  margin-inline: -14px;
+  padding: 34px 16px 10px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
