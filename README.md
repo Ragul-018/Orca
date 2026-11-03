@@ -79,7 +79,10 @@ Console-inspired. No account. No telemetry.
 ### Interface
 
 - **Console-style home** — full-bleed artwork, a horizontal game rail, and a focused tile that scales up as you browse.
-- **Navigation sound** — a subtle console blip on every arrow-key move through the rail.
+- **Smooth browsing** — selection is compositor-only, so arrow-key moves never reflow the rail or replay the hero animation.
+- **Navigation sound** — a subtle console blip on every arrow-key move, played from a pre-loaded voice pool.
+- **Arrange your way** — drag any tile to a new spot, or press `Alt` + `←`/`→`. The order is saved to your library.
+- **Remove from home** — a trash button on the focused game opens the same confirmation as Library → More options.
 - **Keyboard-first** — browse with the arrow keys, `Enter` to play, and `Ctrl+K` for fuzzy search.
 - **System tray** — close to the tray and keep tracking in the background.
 
@@ -144,12 +147,15 @@ Artifacts land in `release/`:
 2. Empty state renders on first run.
 3. Add-game modal accepts and saves every field.
 4. Home, Library, Game, Search, Stats, and Settings all render.
-5. Play launches the target process.
-6. `koffi` process-tree tracking fires the running chip.
-7. Stop confirmation closes immediately and finalises the session.
-8. Playtime and sessions persist to `orca-data.json`.
-9. Stats shows the recorded session.
-10. No console or page errors.
+5. Arrow-key selection never moves the neighbouring rail tiles.
+6. `Alt` + arrow and drag-and-drop both persist a new home order.
+7. The home trash button removes a game after confirmation.
+8. Play launches the target process.
+9. `koffi` process-tree tracking fires the running chip.
+10. Stop confirmation closes immediately and finalises the session.
+11. Playtime and sessions persist to `orca-data.json`.
+12. Stats shows the recorded session.
+13. No console or page errors.
 
 Screenshots are written to `%TEMP%\orca-smoke-<dev|packaged>\`.
 
@@ -186,6 +192,7 @@ The directory is created automatically. Useful for portable libraries, isolated 
 | Shortcut | Action |
 |----------|--------|
 | `←` `→` / `↑` `↓` | Browse the home game rail |
+| `Alt` + `←` `→` | Move the focused game left or right on the home rail |
 | `Enter` | Play / stop the focused game |
 | `Ctrl+K` | Search your library |
 | `Escape` | Close an overlay or dialog |

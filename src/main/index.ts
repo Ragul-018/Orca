@@ -37,6 +37,11 @@ protocol.registerSchemesAsPrivileged([
   }
 ])
 
+// Allow automated smoke runs and power users to keep Orca's library elsewhere.
+// This must happen before the single-instance lock, which is keyed by userData.
+const userDataOverride = process.env.ORCA_USER_DATA?.trim()
+if (userDataOverride) app.setPath('userData', resolve(userDataOverride))
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 }
@@ -44,10 +49,6 @@ if (!app.requestSingleInstanceLock()) {
 app.commandLine.appendSwitch('disable-gpu-cache')
 app.setAppUserModelId(APP_ID)
 app.setName(APP_NAME)
-
-// Allow automated smoke runs and power users to keep Orca's library elsewhere.
-const userDataOverride = process.env.ORCA_USER_DATA?.trim()
-if (userDataOverride) app.setPath('userData', resolve(userDataOverride))
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -59,6 +60,7 @@ let allowQuit = false
 const startHidden = process.argv.includes('--autostart')
 
 const idSchema = z.string().uuid()
+const reorderGamesSchema = z.array(idSchema).min(1).max(5_000)
 const optionalText = (max = 2_000) => z.string().trim().max(max).optional()
 const textList = z.array(z.string().trim().min(1).max(60)).max(30).optional()
 const artworkKey = z.string().max(300).nullable().optional()
@@ -338,6 +340,12 @@ function registerIpc(): void {
     const active = sessions.getActiveSession()
     if (active?.gameId === gameId) throw new Error('Stop this game before removing it.')
     await store.removeGame(gameId)
+    broadcastLibrary()
+  })
+
+  ipcMain.handle(IPC.reorderGames, async (_event, ids: unknown) => {
+    const ordered = parseInput(reorderGamesSchema, ids)
+    await store.reorderGames(ordered)
     broadcastLibrary()
   })
 

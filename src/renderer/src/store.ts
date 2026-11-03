@@ -64,6 +64,7 @@ interface OrcaStore {
   addGame: (input: AddGameInput) => Promise<Game | null>
   updateGame: (input: UpdateGameInput) => Promise<Game | null>
   removeGame: (id: string) => void
+  reorderGames: (ids: string[]) => Promise<void>
   setFavorite: (id: string, favorite: boolean) => Promise<void>
   launchGame: (gameId: string) => Promise<void>
   stopActiveSession: () => void
@@ -243,6 +244,28 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
     try {
       await window.orca.setFavorite(id, favorite)
     } catch (error) {
+      get().addToast(cleanErrorMessage(error))
+    }
+  },
+
+  reorderGames: async (ids) => {
+    const previous = get().snapshot
+    if (!previous) return
+    const byId = new Map(previous.games.map((game) => [game.id, game]))
+    const ordered: Game[] = []
+    for (const id of ids) {
+      const game = byId.get(id)
+      if (game) {
+        ordered.push(game)
+        byId.delete(id)
+      }
+    }
+    ordered.push(...byId.values())
+    set({ snapshot: { ...previous, games: ordered } })
+    try {
+      await window.orca.reorderGames(ids)
+    } catch (error) {
+      set({ snapshot: previous })
       get().addToast(cleanErrorMessage(error))
     }
   },

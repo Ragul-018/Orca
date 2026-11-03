@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { clsx } from 'clsx'
 import {
   ArrowRight,
   CheckCircle2,
@@ -11,7 +12,8 @@ import {
   Radio,
   Sparkles,
   Square,
-  Star
+  Star,
+  Trash2
 } from 'lucide-react'
 import type { Game } from '@shared/types'
 import { formatPlaytime, formatRelativeDate } from '@shared/format'
@@ -22,6 +24,9 @@ import { WeekChart } from '../components/WeekChart'
 import { computeWeek, totalPlaytime } from '../lib/visual'
 import navSoundUrl from '../assets/playstation.mp3'
 
+const NAV_SOUND_VOLUME = 0.3
+const NAV_SOUND_VOICES = 3
+
 export function HomePage(): React.JSX.Element {
   const snapshot = useOrcaStore((state) => state.snapshot)
   const active = useOrcaStore((state) => state.activeSession)
@@ -31,19 +36,47 @@ export function HomePage(): React.JSX.Element {
   const stopSession = useOrcaStore((state) => state.stopActiveSession)
   const stopping = useOrcaStore((state) => state.stopping)
   const setFavorite = useOrcaStore((state) => state.setFavorite)
+  const removeGame = useOrcaStore((state) => state.removeGame)
+  const reorderGames = useOrcaStore((state) => state.reorderGames)
 
   const visibleGames = useMemo(() => snapshot?.games.filter((game) => !game.hidden) ?? [], [snapshot])
   const [selectedId, setSelectedId] = useState(
     () => active?.gameId ?? visibleGames[0]?.id ?? ''
   )
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropId, setDropId] = useState<string | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
 
-  // Play navigation sound - creates a new instance each time for instant replay
-  const playNavSound = (): void => {
-    const sound = new Audio(navSoundUrl)
-    sound.volume = 0.3
-    sound.play().catch(() => {})
-  }
+  // A small pool of pre-loaded players keeps the blip instant and allocation-free.
+  const navAudio = useRef<HTMLAudioElement[]>([])
+  const navAudioCursor = useRef(0)
+
+  useEffect(() => {
+    const pool = Array.from({ length: NAV_SOUND_VOICES }, () => {
+      const audio = new Audio(navSoundUrl)
+      audio.preload = 'auto'
+      audio.volume = NAV_SOUND_VOLUME
+      audio.load()
+      return audio
+    })
+    navAudio.current = pool
+    return () => {
+      navAudio.current = []
+    }
+  }, [])
+
+  const playNavSound = useCallback((): void => {
+    const pool = navAudio.current
+    if (pool.length === 0) return
+    const audio = pool[navAudioCursor.current % pool.length]
+    navAudioCursor.current += 1
+    try {
+      audio.currentTime = 0
+      void audio.play().catch(() => undefined)
+    } catch {
+      // Audio is decoration; never let it break navigation.
+    }
+  }, [])
 
   const focusedGame: Game | undefined =
     visibleGames.find((game) => game.id === selectedId) ?? visibleGames[0]
@@ -79,14 +112,66 @@ export function HomePage(): React.JSX.Element {
     if (visibleGames.some((game) => game.id === active.gameId)) setSelectedId(active.gameId)
   }, [active?.gameId, visibleGames])
 
+  // Center the selected tile with a single smooth scroll instead of scrollIntoView,
+  // which also nudges the page scroll container on every keypress.
   useEffect(() => {
     const rail = railRef.current
     if (!rail || !selectedId) return
-    const tile = [...rail.querySelectorAll<HTMLElement>('[data-game-id]')].find(
-      (node) => node.dataset.gameId === selectedId
-    )
-    tile?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
-  }, [selectedId])
+    const tile = rail.querySelector<HTMLElement>(`[data-game-id="${CSS.escape(selectedId)}"]`)
+    if (!tile) return
+    const target = tile.offsetLeft + tile.offsetWidth / 2 - rail.clientWidth / 2
+    const max = rail.scrollWidth - rail.clientWidth
+    rail.scrollTo({
+      left: Math.max(0, Math.min(target, max)),
+      behavior: 'smooth'
+    })
+  }, [selectedId, visibleGames])
+
+  const applyVisibleOrder = useCallback(
+    (nextVisible: Game[]) => {
+      if (!snapshot) return
+      const visibleIds = new Set(visibleGames.map((game) => game.id))
+      const queue = nextVisible.map((game) => game.id)
+      const ids = snapshot.games.map((game) =>
+        visibleIds.has(game.id) ? (queue.shift() as string) : game.id
+      )
+      void reorderGames(ids)
+    },
+    [reorderGames, snapshot, visibleGames]
+  )
+
+  const moveSelected = useCallback(
+    (delta: number): boolean => {
+      if (visibleGames.length < 2) return false
+      const index = visibleGames.findIndex((game) => game.id === focusedGame?.id)
+      if (index < 0) return false
+      const target = index + delta
+      if (target < 0 || target >= visibleGames.length) return false
+      const next = [...visibleGames]
+      const [moved] = next.splice(index, 1)
+      next.splice(target, 0, moved)
+      applyVisibleOrder(next)
+      return true
+    },
+    [applyVisibleOrder, focusedGame?.id, visibleGames]
+  )
+
+  const dropOn = useCallback(
+    (targetId: string): void => {
+      const sourceId = dragId
+      setDragId(null)
+      setDropId(null)
+      if (!sourceId || sourceId === targetId) return
+      const from = visibleGames.findIndex((game) => game.id === sourceId)
+      const to = visibleGames.findIndex((game) => game.id === targetId)
+      if (from < 0 || to < 0) return
+      const next = [...visibleGames]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      applyVisibleOrder(next)
+    },
+    [applyVisibleOrder, dragId, visibleGames]
+  )
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -98,6 +183,19 @@ export function HomePage(): React.JSX.Element {
       ) {
         return
       }
+
+      // Alt + arrow rearranges the focused game without leaving the keyboard.
+      if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+      ) {
+        event.preventDefault()
+        if (moveSelected(event.key === 'ArrowRight' ? 1 : -1)) playNavSound()
+        return
+      }
+
       if (event.altKey || event.ctrlKey || event.metaKey) return
 
       const currentIndex = Math.max(
@@ -133,6 +231,8 @@ export function HomePage(): React.JSX.Element {
     focusedGame,
     isGameRunning,
     launchGame,
+    moveSelected,
+    playNavSound,
     stopSession,
     visibleGames
   ])
@@ -146,7 +246,7 @@ export function HomePage(): React.JSX.Element {
 
   return (
     <div className="ps5-home page-enter">
-      <div className="ps5-home__backdrop" key={focusedGame.id}>
+      <div className="ps5-home__backdrop">
         <HeroArtwork game={focusedGame} className="ps5-home__backdrop-art" eager />
         <div className="ps5-home__scrim" />
       </div>
@@ -157,6 +257,7 @@ export function HomePage(): React.JSX.Element {
             <span className="ps5-home__shelf-mark" />
             Your library
           </span>
+          <span className="ps5-home__shelf-hint">Drag to rearrange</span>
           <span className="ps5-home__shelf-count">
             {visibleGames.length} {visibleGames.length === 1 ? 'game' : 'games'}
           </span>
@@ -172,13 +273,40 @@ export function HomePage(): React.JSX.Element {
                 type="button"
                 role="option"
                 aria-selected={selected}
-                className={`ps5-rail-card ${selected ? 'is-selected' : ''} ${
-                  playing ? 'is-playing' : ''
-                }`}
+                draggable
+                className={clsx(
+                  'ps5-rail-card',
+                  selected && 'is-selected',
+                  playing && 'is-playing',
+                  dragId === game.id && 'is-dragging',
+                  dropId === game.id && 'is-drop-target'
+                )}
                 data-game-id={game.id}
-                title={game.title}
+                title={`${game.title} — drag to rearrange`}
                 onClick={() => setSelectedId(game.id)}
                 onDoubleClick={() => void launchGame(game.id)}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = 'move'
+                  event.dataTransfer.setData('text/plain', game.id)
+                  setDragId(game.id)
+                }}
+                onDragOver={(event) => {
+                  if (!dragId || dragId === game.id) return
+                  event.preventDefault()
+                  event.dataTransfer.dropEffect = 'move'
+                  if (dropId !== game.id) setDropId(game.id)
+                }}
+                onDragLeave={() => {
+                  if (dropId === game.id) setDropId(null)
+                }}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  dropOn(game.id)
+                }}
+                onDragEnd={() => {
+                  setDragId(null)
+                  setDropId(null)
+                }}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter') return
                   event.preventDefault()
@@ -224,7 +352,7 @@ export function HomePage(): React.JSX.Element {
       </header>
 
       <main className="ps5-home__stage">
-        <section className="ps5-home__hero" key={focusedGame.id}>
+        <section className="ps5-home__hero">
           <div className="ps5-home__status">
             <span className="ps5-home__platform">PC</span>
             {isGameRunning ? (
@@ -302,6 +430,16 @@ export function HomePage(): React.JSX.Element {
               onClick={() => void setFavorite(focusedGame.id, !focusedGame.favorite)}
             >
               <Heart size={17} fill={focusedGame.favorite ? 'currentColor' : 'none'} />
+            </button>
+
+            <button
+              className="round-button round-button--danger"
+              type="button"
+              aria-label={`Remove ${focusedGame.title} from home`}
+              title="Remove from home"
+              onClick={() => removeGame(focusedGame.id)}
+            >
+              <Trash2 size={16} />
             </button>
           </div>
 
@@ -384,6 +522,8 @@ export function HomePage(): React.JSX.Element {
           <span>Browse</span>
           <kbd>Enter</kbd>
           <span>Play</span>
+          <kbd>Alt</kbd>
+          <span>Reorder</span>
         </div>
         <button className="ps5-home__add" type="button" onClick={() => openAddGame()}>
           <Plus size={14} />

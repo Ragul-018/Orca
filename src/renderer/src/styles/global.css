@@ -332,6 +332,12 @@ kbd {
   line-height: 1;
 }
 
+.round-button--danger:hover:not(:disabled) {
+  border-color: rgba(255, 107, 107, 0.5);
+  background: rgba(255, 107, 107, 0.14);
+  color: #ffb3b3;
+}
+
 .text-button {
   display: inline-flex;
   align-items: center;
@@ -5258,8 +5264,16 @@ kbd {
 .ps5-home__shelf-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+}
+
+.ps5-home__shelf-hint {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.26);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .ps5-home__shelf-label {
@@ -5292,11 +5306,12 @@ kbd {
 .ps5-rail {
   display: flex;
   align-items: flex-end;
-  gap: 14px;
-  padding: 26px 2px 10px;
+  gap: 18px;
+  padding: 34px 2px 10px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
-  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
 }
 
 .ps5-rail::-webkit-scrollbar {
@@ -5315,21 +5330,20 @@ kbd {
   background: transparent;
   color: inherit;
   opacity: 0.56;
-  scroll-snap-align: center;
-  transition: opacity 0.24s ease, transform 0.24s var(--ease), width 0.24s var(--ease);
+  transition: opacity 0.24s ease;
 }
 
 .ps5-rail-card:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
 }
 
 .ps5-rail-card.is-selected {
-  width: 96px;
   opacity: 1;
   z-index: 1;
 }
 
+/* Everything inside the rail uses transform-only animation so the browser can
+   keep the tiles on the compositor and never reflows the flex row mid-browse. */
 .ps5-rail-card__art {
   position: relative;
   display: block;
@@ -5340,17 +5354,33 @@ kbd {
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.07);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
-  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s var(--ease), width 0.24s var(--ease), height 0.24s var(--ease);
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center bottom;
+  will-change: transform;
+  backface-visibility: hidden;
+  transition:
+    transform 0.28s var(--ease),
+    border-color 0.22s ease,
+    box-shadow 0.28s ease;
 }
 
 .ps5-rail-card.is-selected .ps5-rail-card__art {
-  width: 96px;
-  height: 96px;
   border-color: rgba(255, 255, 255, 0.92);
   box-shadow:
     0 0 0 2px rgba(255, 255, 255, 0.92),
     0 20px 40px rgba(0, 0, 0, 0.52);
-  transform: translateY(-4px);
+  transform: translate3d(0, -3px, 0) scale(1.25);
+}
+
+.ps5-rail-card.is-dragging {
+  opacity: 0.3;
+}
+
+.ps5-rail-card.is-drop-target .ps5-rail-card__art {
+  border-color: var(--aqua-bright);
+  box-shadow:
+    0 0 0 2px var(--aqua-bright),
+    0 18px 38px rgba(0, 112, 204, 0.35);
 }
 
 .ps5-rail-card.is-playing .ps5-rail-card__art {
@@ -5398,7 +5428,7 @@ kbd {
 }
 
 .ps5-rail-card__title {
-  max-width: 82px;
+  max-width: 76px;
   overflow: hidden;
   color: rgba(255, 255, 255, 0.48);
   font-size: 8.5px;
@@ -5408,12 +5438,11 @@ kbd {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 0.22s ease, max-width 0.22s var(--ease);
+  transition: color 0.22s ease;
 }
 
 .ps5-rail-card.is-selected .ps5-rail-card__title {
-  max-width: 96px;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .ps5-rail-card--add .ps5-rail-card__art {
@@ -5859,7 +5888,8 @@ kbd {
   }
 
   .ps5-rail {
-    gap: 11px;
+    gap: 12px;
+    padding-top: 28px;
   }
 
   .ps5-rail-card,
@@ -5873,21 +5903,12 @@ kbd {
   }
 
   .ps5-rail-card__title {
-    max-width: 66px;
+    max-width: 62px;
     font-size: 8px;
   }
 
-  .ps5-rail-card.is-selected {
-    width: 76px;
-  }
-
-  .ps5-rail-card.is-selected .ps5-rail-card__art {
-    width: 76px;
-    height: 76px;
-  }
-
-  .ps5-rail-card.is-selected .ps5-rail-card__title {
-    max-width: 76px;
+  .ps5-home__shelf-hint {
+    display: none;
   }
 
   .ps5-home__title {

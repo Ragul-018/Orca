@@ -8,6 +8,7 @@ export const IPC = {
   addGame: 'game:add',
   updateGame: 'game:update',
   removeGame: 'game:remove',
+  reorderGames: 'game:reorder',
   setFavorite: 'game:set-favorite',
   launchGame: 'game:launch',
   stopSession: 'session:stop',

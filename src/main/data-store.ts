@@ -388,6 +388,25 @@ export class DataStore {
     await this.deleteArtworkIfUnused(game.heroArt)
   }
 
+  async reorderGames(ids: string[]): Promise<void> {
+    const unique = new Set(ids)
+    if (unique.size !== ids.length) throw new Error('Duplicate games in the new order.')
+
+    const byId = new Map(this.data.games.map((game) => [game.id, game]))
+    for (const id of ids) {
+      if (!byId.has(id)) throw new Error('Game not found.')
+    }
+
+    const ordered: StoredGame[] = ids.map((id) => byId.get(id) as StoredGame)
+    for (const game of this.data.games) {
+      if (!unique.has(game.id)) ordered.push(game)
+    }
+
+    this.data.games = ordered
+    this.data.updatedAt = new Date().toISOString()
+    await this.save()
+  }
+
   async addSession(session: PlaySession): Promise<void> {
     this.data.sessions.unshift(session)
     this.data.activeSession = null

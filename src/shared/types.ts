@@ -172,6 +172,7 @@ export interface OrcaApi {
   addGame: (input: AddGameInput) => Promise<Game>
   updateGame: (input: UpdateGameInput) => Promise<Game>
   removeGame: (id: string) => Promise<void>
+  reorderGames: (ids: string[]) => Promise<void>
   setFavorite: (id: string, favorite: boolean) => Promise<Game>
   launchGame: (id: string) => Promise<LaunchResult>
   stopSession: () => Promise<void>

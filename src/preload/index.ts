@@ -26,6 +26,7 @@ const api: OrcaApi = {
   addGame: (input: AddGameInput) => ipcRenderer.invoke(IPC.addGame, input),
   updateGame: (input: UpdateGameInput) => ipcRenderer.invoke(IPC.updateGame, input),
   removeGame: (id: string) => ipcRenderer.invoke(IPC.removeGame, id),
+  reorderGames: (ids: string[]) => ipcRenderer.invoke(IPC.reorderGames, ids),
   setFavorite: (id: string, favorite: boolean) => ipcRenderer.invoke(IPC.setFavorite, id, favorite),
   launchGame: (id: string) => ipcRenderer.invoke(IPC.launchGame, id) as Promise<LaunchResult>,
   stopSession: () => ipcRenderer.invoke(IPC.stopSession),

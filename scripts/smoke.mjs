@@ -72,6 +72,64 @@ await shot('05-home-with-game')
 const snapshotAfterAdd = await page.evaluate(() => window.orca.getSnapshot())
 console.log('games after add:', snapshotAfterAdd.games.length, snapshotAfterAdd.games[0]?.title)
 
+// Home-screen reordering and removal.
+await page.evaluate(() =>
+  window.orca.addGame({
+    title: 'Second Dive',
+    executablePath: 'C:\\Windows\\System32\\notepad.exe'
+  })
+)
+await page.waitForFunction(
+  () => document.querySelectorAll('.ps5-rail-card[data-game-id]').length === 2,
+  undefined,
+  { timeout: 10_000 }
+)
+const orderBefore = (await page.evaluate(() => window.orca.getSnapshot())).games.map((g) => g.id)
+await page.keyboard.press('Alt+ArrowRight')
+await page.waitForTimeout(900)
+const orderAfter = (await page.evaluate(() => window.orca.getSnapshot())).games.map((g) => g.id)
+console.log('reorder persisted:', orderAfter.join(' , ') !== orderBefore.join(' , '), orderAfter)
+if (orderAfter.join(' , ') === orderBefore.join(' , ')) {
+  issues.push('Alt+Arrow home reorder did not persist')
+}
+await shot('05b-home-reordered')
+
+// Selecting a tile must not move any other tile (transform-only scaling).
+const tileLefts = () =>
+  page.$$eval('.ps5-rail-card[data-game-id]', (nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().left))
+  )
+const leftsBefore = await tileLefts()
+await page.keyboard.press('ArrowRight')
+await page.waitForTimeout(400)
+const leftsAfter = await tileLefts()
+if (leftsBefore.join(',') !== leftsAfter.join(',')) {
+  issues.push(`rail tiles shifted on selection: ${leftsBefore} -> ${leftsAfter}`)
+}
+console.log('rail layout stable:', leftsBefore.join(',') === leftsAfter.join(','))
+
+// Dragging a tile onto another reorders it too.
+await page
+  .locator('.ps5-rail-card[data-game-id]')
+  .nth(1)
+  .dragTo(page.locator('.ps5-rail-card[data-game-id]').nth(0))
+await page.waitForTimeout(1000)
+const dragOrder = (await page.evaluate(() => window.orca.getSnapshot())).games.map((g) => g.title)
+console.log('drag reorder:', dragOrder)
+if (dragOrder[0] !== 'Depth Charge') issues.push(`drag reorder failed: ${dragOrder.join(', ')}`)
+
+await page.getByRole('option', { name: /Second Dive/ }).click()
+await page.getByRole('button', { name: 'Remove Second Dive from home' }).click()
+await page.waitForSelector('.confirm-dialog')
+await page.getByRole('button', { name: 'Remove game', exact: true }).click()
+await page.waitForSelector('.confirm-dialog', { state: 'detached', timeout: 5_000 })
+await page.waitForTimeout(900)
+const afterRemove = await page.evaluate(() => window.orca.getSnapshot())
+console.log('games after home remove:', afterRemove.games.length, afterRemove.games[0]?.title)
+if (afterRemove.games.length !== 1 || afterRemove.games[0]?.title !== 'Depth Charge') {
+  issues.push('home remove did not persist')
+}
+
 // Library page
 await page.getByRole('button', { name: 'Library', exact: true }).click()
 await page.waitForSelector('.game-grid')
