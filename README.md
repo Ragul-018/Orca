@@ -5,11 +5,25 @@
 
 ---
 
+## Download
+
+Grab the latest build from the [Releases page](https://github.com/Ragul-018/Orca/releases/latest):
+
+| Download | Description |
+|----------|-------------|
+| `Orca-1.0.0-x64.exe` | **Recommended.** Installs Orca for your user, adds Start menu and desktop shortcuts, and can be uninstalled from Windows Settings. |
+| `Orca-1.0.0-portable.exe` | Single file, no installation. |
+
+> The installer is currently unsigned, so Windows SmartScreen may show a warning. Choose **More info → Run anyway** to continue.
+
+---
+
 ## Features
 
 - **Library** — Add games manually or scan a folder. Supports `.exe`, `.bat`, `.cmd`, `.lnk`, and `.url` shortcuts.
 - **Artwork search** — Look up a title on Steam with no API key (IGDB and RAWG keys optional) and apply a match to fill the title, developer, year, genres, synopsis, cover, and hero artwork in one click.
-- **PS5-style home** — Full-bleed artwork, a horizontal game rail, and playtime panels that stay out of the way.
+- **PS5-style home** — Full-bleed artwork, a horizontal game rail, game icons that scale when selected, and playtime panels that stay out of the way.
+- **Console navigation** — Browse the home rail with the arrow keys and hear a subtle PlayStation-style blip on every move.
 - **Launcher** — Launches any Windows executable. Tracks the process tree so child processes count as playtime, and stops only the PIDs it started.
 - **Playtime tracking** — Measures exact wall-clock time from launch to stop (or natural exit). Persisted immediately.
 - **Stats dashboard** — Weekly bar chart, all-time totals, session log, and per-game history.
