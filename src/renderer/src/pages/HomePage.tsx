@@ -20,6 +20,7 @@ import { EmptyLibrary } from '../components/EmptyLibrary'
 import { CoverArtwork, HeroArtwork } from '../components/GameArtwork'
 import { WeekChart } from '../components/WeekChart'
 import { computeWeek, totalPlaytime } from '../lib/visual'
+import navSoundUrl from '../assets/playstation.mp3'
 
 export function HomePage(): React.JSX.Element {
   const snapshot = useOrcaStore((state) => state.snapshot)
@@ -36,6 +37,13 @@ export function HomePage(): React.JSX.Element {
     () => active?.gameId ?? visibleGames[0]?.id ?? ''
   )
   const railRef = useRef<HTMLDivElement>(null)
+
+  // Play navigation sound - creates a new instance each time for instant replay
+  const playNavSound = (): void => {
+    const sound = new Audio(navSoundUrl)
+    sound.volume = 0.3
+    sound.play().catch(() => {})
+  }
 
   const focusedGame: Game | undefined =
     visibleGames.find((game) => game.id === selectedId) ?? visibleGames[0]
@@ -100,11 +108,13 @@ export function HomePage(): React.JSX.Element {
       if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
         event.preventDefault()
         setSelectedId(visibleGames[(currentIndex + 1) % visibleGames.length].id)
+        playNavSound()
         return
       }
       if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
         event.preventDefault()
         setSelectedId(visibleGames[(currentIndex - 1 + visibleGames.length) % visibleGames.length].id)
+        playNavSound()
         return
       }
       if (event.key === 'Enter' && focusedGame && !anotherGameRunning) {
