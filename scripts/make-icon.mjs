@@ -7,6 +7,7 @@ const root = process.cwd()
 const buildDir = path.join(root, 'build')
 const resourcesDir = path.join(root, 'resources')
 const trayDir = path.join(resourcesDir, 'tray')
+const rendererAssetsDir = path.join(root, 'src', 'renderer', 'src', 'assets')
 const iconTempDir = path.join(buildDir, 'icon-sizes')
 
 // Source artwork: blue orca mark + "Orca" wordmark on white.
@@ -82,7 +83,47 @@ async function extractMark() {
     }
   }
 
-  return { buffer: out, width: cropW, height: cropH }
+  // In-app version: keep the artwork's own colours, but make only the white
+  // *outside* the whale transparent. White enclosed by the body (the eye patch)
+  // stays opaque, so the mark reads correctly on the dark UI instead of turning
+  // into a cut-out.
+  const source = (x, y) => {
+    const i = ((y + topY) * W + (x + minX)) * channels
+    return [data[i], data[i + 1], data[i + 2]]
+  }
+  const isBackground = (x, y) => Math.min(...source(x, y)) >= 235
+
+  const outside = new Uint8Array(cropW * cropH)
+  const queue = []
+  for (let x = 0; x < cropW; x++) {
+    queue.push([x, 0], [x, cropH - 1])
+  }
+  for (let y = 0; y < cropH; y++) {
+    queue.push([0, y], [cropW - 1, y])
+  }
+  while (queue.length) {
+    const [x, y] = queue.pop()
+    if (x < 0 || y < 0 || x >= cropW || y >= cropH) continue
+    const index = y * cropW + x
+    if (outside[index] || !isBackground(x, y)) continue
+    outside[index] = 1
+    queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1])
+  }
+
+  const brand = Buffer.alloc(cropW * cropH * 4)
+  for (let y = 0; y < cropH; y++) {
+    for (let x = 0; x < cropW; x++) {
+      const index = y * cropW + x
+      const [r, g, b] = source(x, y)
+      const dst = index * 4
+      brand[dst] = r
+      brand[dst + 1] = g
+      brand[dst + 2] = b
+      brand[dst + 3] = outside[index] ? 0 : 255
+    }
+  }
+
+  return { buffer: out, brand, width: cropW, height: cropH }
 }
 
 /** Content width as a fraction of the canvas; small icons need a larger mark. */
@@ -154,6 +195,13 @@ async function main() {
   await fs.writeFile(path.join(buildDir, 'icon.ico'), await pngToIco(iconPaths))
 
   await fs.writeFile(path.join(trayDir, 'tray.png'), await trayIcon(mark))
+
+  // Full-colour mark for the renderer (header logo, empty-library backdrop).
+  await fs.mkdir(rendererAssetsDir, { recursive: true })
+  const brandMark = await sharp(mark.brand, { raw: { width: mark.width, height: mark.height, channels: 4 } })
+    .png({ compressionLevel: 9 })
+    .toBuffer()
+  await fs.writeFile(path.join(rendererAssetsDir, 'orca-mark.png'), brandMark)
 
   await fs.rm(iconTempDir, { recursive: true, force: true })
 

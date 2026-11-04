@@ -479,6 +479,11 @@ kbd {
   filter: drop-shadow(0 0 14px rgba(0, 112, 204, 0.35));
 }
 
+.orca-mark {
+  display: block;
+  height: auto;
+}
+
 .logo__word {
   color: var(--text);
   font-size: 13px;
@@ -1954,6 +1959,7 @@ kbd {
   top: 50%;
   left: 50%;
   color: rgba(0, 112, 204, 0.45);
+  opacity: 0.45;
   filter: drop-shadow(0 0 70px rgba(0, 112, 204, 0.24));
   transform: translate(-50%, -50%);
 }
