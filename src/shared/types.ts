@@ -89,6 +89,10 @@ export interface Settings {
   confirmStopGame: boolean
   showPlaytimeOnCards: boolean
   trackExternalGames: boolean
+  soundEnabled: boolean
+  soundVolume: number
+  reduceMotion: boolean
+  autoCheckUpdates: boolean
   rawgApiKey: string
   igdbClientId: string
   igdbClientSecret: string
@@ -101,10 +105,32 @@ export const DEFAULT_SETTINGS: Settings = {
   confirmStopGame: true,
   showPlaytimeOnCards: true,
   trackExternalGames: false,
+  soundEnabled: true,
+  soundVolume: 0.55,
+  reduceMotion: false,
+  autoCheckUpdates: true,
   rawgApiKey: '',
   igdbClientId: '',
   igdbClientSecret: ''
 }
+
+export type UpdateState =
+  | 'idle'
+  | 'checking'
+  | 'up-to-date'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'error'
+  | 'unsupported'
+
+export interface UpdateStatus {
+  state: UpdateState
+  version?: string
+  percent?: number
+  message?: string
+}
+
 
 export interface ArtworkCandidate {
   id: string
@@ -188,9 +214,15 @@ export interface OrcaApi {
   importArtworkUrl: (url: string, kind: 'cover' | 'hero') => Promise<string | null>
   revealGameFolder: (id: string) => Promise<void>
   exportBackup: () => Promise<string | null>
+  restoreBackup: () => Promise<boolean>
+  getUpdateStatus: () => Promise<UpdateStatus>
+  checkForUpdates: () => Promise<UpdateStatus>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
   openDataFolder: () => Promise<void>
   windowAction: (action: WindowAction) => Promise<void>
   onLibraryChanged: (callback: (snapshot: AppSnapshot) => void) => () => void
   onSessionChanged: (callback: (session: ActiveSession | null) => void) => () => void
   onToast: (callback: (message: string) => void) => () => void
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
 }

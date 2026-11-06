@@ -5,9 +5,12 @@ import type {
   AppSnapshot,
   Game,
   UpdateGameInput,
-  UpdateSettingsInput
+  UpdateSettingsInput,
+  UpdateStatus
 } from '@shared/types'
 import { cleanErrorMessage } from './lib/errors'
+import { configureAudio, playSound } from './lib/audio'
+import type { SoundName } from './lib/audio'
 
 export type View =
   | { name: 'home' }
@@ -48,6 +51,8 @@ interface OrcaStore {
   searchOpen: boolean
   confirm: ConfirmState | null
   toasts: Toast[]
+  updateStatus: UpdateStatus
+  playSound: (name: SoundName) => void
   initialize: () => Promise<void>
   navigate: (view: View) => void
   goBack: () => void
@@ -70,6 +75,10 @@ interface OrcaStore {
   stopActiveSession: () => void
   updateSettings: (input: UpdateSettingsInput) => Promise<void>
   exportBackup: () => Promise<void>
+  restoreBackup: () => void
+  checkForUpdates: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
   openDataFolder: () => Promise<void>
   revealGameFolder: (id: string) => Promise<void>
 }
@@ -94,12 +103,18 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   searchOpen: false,
   confirm: null,
   toasts: [],
+  updateStatus: { state: 'idle' },
+  playSound: (name: SoundName) => playSound(name),
 
   initialize: async () => {
     if (initializing) return initializing
     initializing = (async () => {
       try {
         const snapshot = await window.orca.getSnapshot()
+        configureAudio({
+          enabled: snapshot.settings.soundEnabled,
+          volume: snapshot.settings.soundVolume
+        })
         set({
           snapshot,
           activeSession: snapshot.activeSession,
@@ -110,6 +125,23 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
         set({ loading: false, bootError: cleanErrorMessage(error) })
         return
       }
+
+      void window.orca
+        .getUpdateStatus()
+        .then((updateStatus) => set({ updateStatus }))
+        .catch(() => undefined)
+
+      window.orca.onUpdateStatus((status) => {
+        const previous = get().updateStatus
+        set({ updateStatus: status })
+        if (status.state === 'ready' && previous.state !== 'ready') {
+          get().addToast(
+            `Orca ${status.version ?? ''} is ready. Restart to install.`.replace(/\s+/g, ' '),
+            'success'
+          )
+          playSound('update')
+        }
+      })
 
       window.orca.onLibraryChanged((snapshot) => {
         set((state) => {
@@ -144,6 +176,7 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   navigate: (view) => {
     const current = get().view
     if (viewsEqual(current, view)) return
+    playSound('click')
     set((state) => ({
       view,
       history: [...state.history.filter((entry) => !viewsEqual(entry, view)), current].slice(-20),
@@ -162,19 +195,28 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   },
 
   openGame: (gameId) => {
+    playSound('open')
     get().navigate({ name: 'game', gameId })
   },
 
   openAddGame: (gameId, startWithScan = false) => {
+    playSound('open')
     set({ addGameModal: { open: true, gameId: gameId ?? null, startWithScan } })
   },
 
   closeAddGame: () => {
+    playSound('close')
     set({ addGameModal: { open: false, gameId: null, startWithScan: false } })
   },
 
-  openSearch: () => set({ searchOpen: true }),
-  closeSearch: () => set({ searchOpen: false }),
+  openSearch: () => {
+    playSound('open')
+    set({ searchOpen: true })
+  },
+  closeSearch: () => {
+    playSound('close')
+    set({ searchOpen: false })
+  },
 
   addToast: (message, tone = 'default') => {
     const id = crypto.randomUUID()
@@ -196,6 +238,7 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
       await confirm.action()
       set({ confirm: null })
     } catch (error) {
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
       set({ confirm: null })
     }
@@ -204,9 +247,11 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   addGame: async (input) => {
     try {
       const game = await window.orca.addGame(input)
+      playSound('success')
       get().addToast(`${game.title} joined your library.`, 'success')
       return game
     } catch (error) {
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
       return null
     }
@@ -214,8 +259,11 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
 
   updateGame: async (input) => {
     try {
-      return await window.orca.updateGame(input)
+      const game = await window.orca.updateGame(input)
+      playSound('success')
+      return game
     } catch (error) {
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
       return null
     }
@@ -235,6 +283,7 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
         if (currentView.name === 'game' && currentView.gameId === id) {
           set({ view: { name: 'library' }, history: [] })
         }
+        playSound('success')
         get().addToast(`${game.title} was removed.`)
       }
     })
@@ -242,8 +291,10 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
 
   setFavorite: async (id, favorite) => {
     try {
+      playSound('toggle')
       await window.orca.setFavorite(id, favorite)
     } catch (error) {
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
     }
   },
@@ -274,9 +325,11 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
     try {
       const result = await window.orca.launchGame(gameId)
       if (!result.ok) {
+        playSound('error')
         get().addToast(result.error ?? 'The game could not be launched.')
         return
       }
+      playSound('launch')
       if (result.activeSession) {
         set((state) => ({
           activeSession: result.activeSession ?? null,
@@ -284,6 +337,7 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
         }))
       }
     } catch (error) {
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
     }
   },
@@ -301,7 +355,9 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
       void (async () => {
         try {
           await window.orca.stopSession()
+          playSound('close')
         } catch (error) {
+          playSound('error')
           get().addToast(cleanErrorMessage(error))
         } finally {
           set({ stopping: false })
@@ -326,12 +382,23 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   updateSettings: async (input) => {
     const previous = get().snapshot
     if (previous) {
-      set({ snapshot: { ...previous, settings: { ...previous.settings, ...input } } })
+      const settings = { ...previous.settings, ...input }
+      set({ snapshot: { ...previous, settings } })
+      if (input.soundEnabled !== undefined || input.soundVolume !== undefined) {
+        configureAudio({ enabled: settings.soundEnabled, volume: settings.soundVolume })
+      }
     }
     try {
       await window.orca.updateSettings(input)
     } catch (error) {
       set({ snapshot: previous })
+      if (previous) {
+        configureAudio({
+          enabled: previous.settings.soundEnabled,
+          volume: previous.settings.soundVolume
+        })
+      }
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
     }
   },
@@ -339,8 +406,59 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   exportBackup: async () => {
     try {
       const path = await window.orca.exportBackup()
-      if (path) get().addToast('Backup exported.', 'success')
+      if (path) {
+        playSound('success')
+        get().addToast('Backup exported.', 'success')
+      }
     } catch (error) {
+      playSound('error')
+      get().addToast(cleanErrorMessage(error))
+    }
+  },
+
+  restoreBackup: () => {
+    get().requestConfirm({
+      title: 'Restore a backup?',
+      message:
+        'This replaces your current library, play sessions, settings, and artwork with the contents of the backup file. Export a fresh backup first if you are unsure.',
+      confirmLabel: 'Choose backup',
+      danger: true,
+      action: async () => {
+        const restored = await window.orca.restoreBackup()
+        if (!restored) return
+        playSound('success')
+        get().addToast('Backup restored.', 'success')
+      }
+    })
+  },
+
+  checkForUpdates: async () => {
+    try {
+      set({ updateStatus: { state: 'checking' } })
+      const status = await window.orca.checkForUpdates()
+      set({ updateStatus: status })
+    } catch (error) {
+      set({ updateStatus: { state: 'error', message: cleanErrorMessage(error) } })
+      get().addToast(cleanErrorMessage(error))
+    }
+  },
+
+  downloadUpdate: async () => {
+    try {
+      set({ updateStatus: { state: 'downloading', percent: 0 } })
+      await window.orca.downloadUpdate()
+    } catch (error) {
+      set({ updateStatus: { state: 'error', message: cleanErrorMessage(error) } })
+      playSound('error')
+      get().addToast(cleanErrorMessage(error))
+    }
+  },
+
+  installUpdate: async () => {
+    try {
+      await window.orca.installUpdate()
+    } catch (error) {
+      playSound('error')
       get().addToast(cleanErrorMessage(error))
     }
   },

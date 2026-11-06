@@ -6,10 +6,16 @@ import {
   Keyboard,
   MonitorUp,
   Power,
+  RotateCcw,
   ShieldCheck,
-  Timer
+  Timer,
+  Volume2,
+  VolumeX,
+  LayoutDashboard,
+  RefreshCw
 } from 'lucide-react'
-import type { Settings } from '@shared/types'
+import { useState } from 'react'
+import type { Settings, UpdateStatus } from '@shared/types'
 import { useOrcaStore } from '../store'
 import { Logo, OrcaMark } from '../components/Logo'
 
@@ -22,6 +28,7 @@ function Toggle({
   onChange: (checked: boolean) => void
   label: string
 }): React.JSX.Element {
+  const playSound = useOrcaStore((state) => state.playSound)
   return (
     <button
       className={`toggle ${checked ? 'is-on' : ''}`}
@@ -29,7 +36,10 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
+      onClick={() => {
+        playSound('toggle')
+        onChange(!checked)
+      }}
     >
       <span className="toggle__thumb" />
     </button>
@@ -55,16 +65,76 @@ function SettingRow({ title, description, checked, onChange }: SettingRowProps):
   )
 }
 
+interface VolumeSliderProps {
+  value: number
+  disabled: boolean
+  onChange: (value: number) => void
+}
+
+function VolumeSlider({ value, disabled, onChange }: VolumeSliderProps): React.JSX.Element {
+  const playSound = useOrcaStore((state) => state.playSound)
+  const [hover, setHover] = useState(false)
+
+  return (
+    <div
+      className="volume-slider"
+      role="slider"
+      aria-valuemin={0}
+      aria-valuemax={1}
+      aria-valuenow={value}
+      aria-disabled={disabled}
+    >
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => !disabled && onChange(parseFloat(e.target.value))}
+        onPointerUp={() => !disabled && playSound('toggle')}
+        onKeyUp={() => !disabled && playSound('toggle')}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        aria-label="Sound volume"
+      />
+      <span className="volume-slider__icon" aria-hidden="true">
+        {value === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+      </span>
+      <span className={`volume-slider__value ${hover ? 'is-visible' : ''}`}>
+        {Math.round(value * 100)}%
+      </span>
+    </div>
+  )
+}
+
 export function SettingsPage(): React.JSX.Element {
   const snapshot = useOrcaStore((state) => state.snapshot)
   const updateSettings = useOrcaStore((state) => state.updateSettings)
   const exportBackup = useOrcaStore((state) => state.exportBackup)
+  const restoreBackup = useOrcaStore((state) => state.restoreBackup)
   const openDataFolder = useOrcaStore((state) => state.openDataFolder)
+  const checkForUpdates = useOrcaStore((state) => state.checkForUpdates)
+  const downloadUpdate = useOrcaStore((state) => state.downloadUpdate)
+  const installUpdate = useOrcaStore((state) => state.installUpdate)
+  const updateStatus = useOrcaStore((state) => state.updateStatus)
+  const playSound = useOrcaStore((state) => state.playSound)
 
   if (!snapshot) return <></>
   const settings: Settings = snapshot.settings
   const set = (patch: Partial<Settings>): void => {
     void updateSettings(patch)
+  }
+
+  const statusLabels: Record<UpdateStatus['state'], string> = {
+    idle: 'Not checked',
+    checking: 'Checking…',
+    'up-to-date': 'Up to date',
+    available: 'Update available',
+    downloading: 'Downloading…',
+    ready: 'Ready to install',
+    error: 'Error',
+    unsupported: 'Unsupported in dev build'
   }
 
   return (
@@ -85,6 +155,41 @@ export function SettingsPage(): React.JSX.Element {
 
       <div className="settings-layout">
         <div className="settings-main">
+          <section className="panel settings-panel">
+            <div className="settings-panel__heading">
+              <span className="setting-icon">
+                <LayoutDashboard size={17} />
+              </span>
+              <div>
+                <h2>Interface</h2>
+                <p>Sound, motion, and visual preferences.</p>
+              </div>
+            </div>
+            <SettingRow
+              title="Sound effects"
+              description="Play subtle audio cues for navigation, actions, and notifications."
+              checked={settings.soundEnabled}
+              onChange={(value) => set({ soundEnabled: value })}
+            />
+            <div className="setting-row">
+              <div>
+                <strong>Sound volume</strong>
+                <p>Adjust the volume of all interface sounds.</p>
+              </div>
+              <VolumeSlider
+                value={settings.soundVolume}
+                disabled={!settings.soundEnabled}
+                onChange={(value) => set({ soundVolume: value })}
+              />
+            </div>
+            <SettingRow
+              title="Reduce motion"
+              description="Respect your system's Reduce Motion preference. Disables most animations and transitions."
+              checked={settings.reduceMotion}
+              onChange={(value) => set({ reduceMotion: value })}
+            />
+          </section>
+
           <section className="panel settings-panel">
             <div className="settings-panel__heading">
               <span className="setting-icon">
@@ -244,6 +349,12 @@ export function SettingsPage(): React.JSX.Element {
               checked={settings.closeToTray}
               onChange={(value) => set({ closeToTray: value })}
             />
+            <SettingRow
+              title="Check for updates automatically"
+              description="Orca will check for updates in the background after launch and notify you when a new version is ready."
+              checked={settings.autoCheckUpdates}
+              onChange={(value) => set({ autoCheckUpdates: value })}
+            />
           </section>
 
         </div>
@@ -267,6 +378,10 @@ export function SettingsPage(): React.JSX.Element {
               <button className="button button--glass" type="button" onClick={() => void exportBackup()}>
                 <Download size={15} />
                 Export backup
+              </button>
+              <button className="button button--glass" type="button" onClick={() => void restoreBackup()}>
+                <RotateCcw size={15} />
+                Restore backup
               </button>
             </div>
           </section>
@@ -305,6 +420,70 @@ export function SettingsPage(): React.JSX.Element {
               <span>Local-first</span>
               <span>No account</span>
               <span>No telemetry</span>
+            </div>
+
+            <div className="settings-about__updates" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+              <div className="setting-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong style={{ fontSize: '0.85rem' }}>Update status</strong>
+                  <span
+                    className={`badge ${updateStatus.state === 'ready' ? 'badge--success' : updateStatus.state === 'error' ? 'badge--error' : updateStatus.state === 'downloading' || updateStatus.state === 'checking' ? 'badge--info' : 'badge--muted'}`}
+                    style={{
+                      padding: '4px 10px', fontSize: '0.75rem', borderRadius: '4px', fontWeight: 600, textTransform: 'capitalize',
+                      background: updateStatus.state === 'ready' ? 'rgba(34, 197, 94, 0.15)' :
+                                  updateStatus.state === 'error' ? 'rgba(239, 68, 68, 0.15)' :
+                                  updateStatus.state === 'downloading' || updateStatus.state === 'checking' ? 'rgba(59, 130, 246, 0.15)' :
+                                  'rgba(100, 116, 139, 0.15)',
+                      color: updateStatus.state === 'ready' ? '#4ade80' :
+                             updateStatus.state === 'error' ? '#f87171' :
+                             updateStatus.state === 'downloading' || updateStatus.state === 'checking' ? '#60a5fa' :
+                             '#94a3b8'
+                    }}
+                  >
+                    {updateStatus.state === 'downloading' && updateStatus.percent !== undefined
+                      ? `Downloading ${updateStatus.percent}%`
+                      : statusLabels[updateStatus.state]}
+                  </span>
+                </div>
+                {updateStatus.message && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>{updateStatus.message}</p>
+                )}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    className="button button--glass"
+                    type="button"
+                    onClick={() => void checkForUpdates()}
+                    disabled={updateStatus.state === 'checking' || updateStatus.state === 'downloading'}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    <RefreshCw size={14} className={updateStatus.state === 'checking' ? 'spin' : undefined} />
+                    {updateStatus.state === 'checking' ? 'Checking…' : 'Check for updates'}
+                  </button>
+                  {updateStatus.state === 'available' && (
+                    <button
+                      className="button button--primary"
+                      type="button"
+                      onClick={() => void downloadUpdate()}
+                      style={{ alignSelf: 'flex-start' }}
+                    >
+                      Download update
+                    </button>
+                  )}
+                  {updateStatus.state === 'ready' && (
+                    <button
+                      className="button button--primary"
+                      type="button"
+                      onClick={() => {
+                            playSound('success')
+                            void installUpdate()
+                          }}
+                      style={{ alignSelf: 'flex-start' }}
+                    >
+                      Restart to install
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
         </aside>

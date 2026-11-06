@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import AdmZip from 'adm-zip'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -155,6 +156,18 @@ function normalizeData(input: unknown): StoredData {
   let settings = { ...DEFAULT_SETTINGS }
   if (source.settings && typeof source.settings === 'object') {
     settings = { ...settings, ...(source.settings as Partial<Settings>) }
+    settings.soundVolume =
+      typeof settings.soundVolume === 'number' && Number.isFinite(settings.soundVolume)
+        ? Math.max(0, Math.min(1, settings.soundVolume))
+        : DEFAULT_SETTINGS.soundVolume
+    settings.soundEnabled =
+      typeof settings.soundEnabled === 'boolean' ? settings.soundEnabled : DEFAULT_SETTINGS.soundEnabled
+    settings.reduceMotion =
+      typeof settings.reduceMotion === 'boolean' ? settings.reduceMotion : DEFAULT_SETTINGS.reduceMotion
+    settings.autoCheckUpdates =
+      typeof settings.autoCheckUpdates === 'boolean'
+        ? settings.autoCheckUpdates
+        : DEFAULT_SETTINGS.autoCheckUpdates
   }
 
   let activeSession: StoredActiveSession | null = null
@@ -460,7 +473,60 @@ export class DataStore {
 
   async exportBackup(destination: string): Promise<void> {
     await this.save()
-    await fs.copyFile(this.dataFile, destination)
+
+    if (path.extname(destination).toLowerCase() !== '.zip') {
+      await fs.copyFile(this.dataFile, destination)
+      return
+    }
+
+    // Bundle the library with its artwork so a restore looks the way it did.
+    const zip = new AdmZip()
+    zip.addLocalFile(this.dataFile, '', 'orca-data.json')
+    const entries = await fs.readdir(this.artworkDirectory, { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      if (!ART_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue
+      zip.addLocalFile(path.join(this.artworkDirectory, entry.name), 'artwork')
+    }
+    zip.writeZip(destination)
+  }
+
+  async importBackup(source: string): Promise<void> {
+    const extension = path.extname(source).toLowerCase()
+    let raw: string
+    let artwork: { name: string; data: Buffer }[] = []
+
+    if (extension === '.zip') {
+      const zip = new AdmZip(source)
+      const dataEntry = zip.getEntry('orca-data.json')
+      if (!dataEntry) throw new Error('That backup is missing orca-data.json.')
+      raw = dataEntry.getData().toString('utf8')
+      artwork = zip
+        .getEntries()
+        .filter((entry) => !entry.isDirectory && entry.entryName.startsWith('artwork/'))
+        .map((entry) => ({ name: path.basename(entry.entryName), data: entry.getData() }))
+        .filter((entry) => entry.name === path.basename(entry.name))
+        .filter((entry) => ART_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+    } else {
+      raw = await fs.readFile(source, 'utf8')
+    }
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { games?: unknown }).games)) {
+      throw new Error('That file is not an Orca backup.')
+    }
+
+    const next = normalizeData(parsed)
+    next.activeSession = null
+    this.data = next
+    await this.save()
+
+    await fs.rm(this.artworkDirectory, { recursive: true, force: true })
+    await fs.mkdir(this.artworkDirectory, { recursive: true })
+    for (const file of artwork) {
+      await fs.writeFile(path.join(this.artworkDirectory, file.name), file.data)
+    }
+    await this.cleanupArtwork()
   }
 
   private async resolveArtworkInput(

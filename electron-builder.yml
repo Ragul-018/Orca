@@ -1,5 +1,9 @@
 appId: app.orca.launcher
 productName: Orca
+publish:
+  provider: github
+  owner: Ragul-018
+  repo: Orca
 copyright: Copyright © 2026 Orca
 directories:
   buildResources: build

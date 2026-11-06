@@ -22,10 +22,6 @@ import { EmptyLibrary } from '../components/EmptyLibrary'
 import { CoverArtwork, HeroArtwork } from '../components/GameArtwork'
 import { WeekChart } from '../components/WeekChart'
 import { computeWeek, totalPlaytime } from '../lib/visual'
-import navSoundUrl from '../assets/playstation.mp3'
-
-const NAV_SOUND_VOLUME = 0.3
-const NAV_SOUND_VOICES = 3
 
 export function HomePage(): React.JSX.Element {
   const snapshot = useOrcaStore((state) => state.snapshot)
@@ -38,6 +34,7 @@ export function HomePage(): React.JSX.Element {
   const setFavorite = useOrcaStore((state) => state.setFavorite)
   const removeGame = useOrcaStore((state) => state.removeGame)
   const reorderGames = useOrcaStore((state) => state.reorderGames)
+  const playSound = useOrcaStore((state) => state.playSound)
 
   const visibleGames = useMemo(() => snapshot?.games.filter((game) => !game.hidden) ?? [], [snapshot])
   const [selectedId, setSelectedId] = useState(
@@ -46,37 +43,6 @@ export function HomePage(): React.JSX.Element {
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropId, setDropId] = useState<string | null>(null)
   const railRef = useRef<HTMLDivElement>(null)
-
-  // A small pool of pre-loaded players keeps the blip instant and allocation-free.
-  const navAudio = useRef<HTMLAudioElement[]>([])
-  const navAudioCursor = useRef(0)
-
-  useEffect(() => {
-    const pool = Array.from({ length: NAV_SOUND_VOICES }, () => {
-      const audio = new Audio(navSoundUrl)
-      audio.preload = 'auto'
-      audio.volume = NAV_SOUND_VOLUME
-      audio.load()
-      return audio
-    })
-    navAudio.current = pool
-    return () => {
-      navAudio.current = []
-    }
-  }, [])
-
-  const playNavSound = useCallback((): void => {
-    const pool = navAudio.current
-    if (pool.length === 0) return
-    const audio = pool[navAudioCursor.current % pool.length]
-    navAudioCursor.current += 1
-    try {
-      audio.currentTime = 0
-      void audio.play().catch(() => undefined)
-    } catch {
-      // Audio is decoration; never let it break navigation.
-    }
-  }, [])
 
   const focusedGame: Game | undefined =
     visibleGames.find((game) => game.id === selectedId) ?? visibleGames[0]
@@ -192,7 +158,7 @@ export function HomePage(): React.JSX.Element {
         (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
       ) {
         event.preventDefault()
-        if (moveSelected(event.key === 'ArrowRight' ? 1 : -1)) playNavSound()
+        if (moveSelected(event.key === 'ArrowRight' ? 1 : -1)) playSound('nav')
         return
       }
 
@@ -206,13 +172,13 @@ export function HomePage(): React.JSX.Element {
       if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
         event.preventDefault()
         setSelectedId(visibleGames[(currentIndex + 1) % visibleGames.length].id)
-        playNavSound()
+        playSound('nav')
         return
       }
       if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
         event.preventDefault()
         setSelectedId(visibleGames[(currentIndex - 1 + visibleGames.length) % visibleGames.length].id)
-        playNavSound()
+        playSound('nav')
         return
       }
       if (event.key === 'Enter' && focusedGame && !anotherGameRunning) {
@@ -232,7 +198,7 @@ export function HomePage(): React.JSX.Element {
     isGameRunning,
     launchGame,
     moveSelected,
-    playNavSound,
+    playSound,
     stopSession,
     visibleGames
   ])
@@ -283,7 +249,10 @@ export function HomePage(): React.JSX.Element {
                 )}
                 data-game-id={game.id}
                 title={`${game.title} — drag to rearrange`}
-                onClick={() => setSelectedId(game.id)}
+                onClick={() => {
+                  if (!selected) playSound('nav')
+                  setSelectedId(game.id)
+                }}
                 onDoubleClick={() => void launchGame(game.id)}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'move'

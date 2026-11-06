@@ -1,4 +1,4 @@
-import { BarChart3, Home, LibraryBig, LoaderCircle, Search, Settings2, Square } from 'lucide-react'
+import { ArrowUpCircle, BarChart3, Home, LibraryBig, LoaderCircle, Search, Settings2, Square } from 'lucide-react'
 import { formatDuration } from '@shared/format'
 import { useOrcaStore } from '../store'
 import { Logo } from './Logo'
@@ -19,6 +19,7 @@ export function TopBar(): React.JSX.Element {
   const openGame = useOrcaStore((state) => state.openGame)
   const stopSession = useOrcaStore((state) => state.stopActiveSession)
   const stopping = useOrcaStore((state) => state.stopping)
+  const updateStatus = useOrcaStore((state) => state.updateStatus)
   const activeGame = active ? games.find((game) => game.id === active.gameId) : null
   const activeTab = view.name === 'game' ? 'library' : view.name
   const overArt = view.name === 'home' || view.name === 'game'
@@ -74,6 +75,18 @@ export function TopBar(): React.JSX.Element {
               )}
             </button>
           </div>
+        )}
+
+        {updateStatus.state === 'ready' && (
+          <button
+            className="update-chip"
+            type="button"
+            onClick={() => navigate({ name: 'settings' })}
+            title={`Orca ${updateStatus.version ?? ''} is ready to install`}
+          >
+            <ArrowUpCircle size={14} />
+            <span>Update ready</span>
+          </button>
         )}
 
         <button className="icon-button search-trigger" type="button" onClick={openSearch} aria-label="Search games">

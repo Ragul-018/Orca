@@ -14,6 +14,7 @@ Console-inspired. No account. No telemetry.
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0070CC?style=flat-square)](#requirements)
 [![License](https://img.shields.io/badge/license-MIT-0070CC?style=flat-square)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-45-0070CC?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Ragul-018/Orca/ci.yml?branch=main&style=flat-square&label=CI&color=0070CC)](https://github.com/Ragul-018/Orca/actions/workflows/ci.yml)
 
 **[Download](#download)** · **[Features](#features)** · **[Screens](#screens)** · **[Build from source](#build-from-source)** · **[Data & privacy](#data--privacy)**
 
@@ -27,12 +28,12 @@ Console-inspired. No account. No telemetry.
 
 |  | File | Description |
 |:--|:-----|:------------|
-| 🖥️ | **[Orca-1.0.0-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
-| 🎒 | **[Orca-1.0.0-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
+| 🖥️ | **[Orca-1.1.0-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
+| 🎒 | **[Orca-1.1.0-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
 
 ### Install
 
-1. Download **`Orca-1.0.0-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
+1. Download **`Orca-1.1.0-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
 2. Run it, choose an install folder, and finish the wizard.
 3. Open **Orca** from the Start menu or desktop shortcut.
 
@@ -80,11 +81,19 @@ Console-inspired. No account. No telemetry.
 
 - **Console-style home** — full-bleed artwork, a horizontal game rail, and a focused tile that scales up as you browse.
 - **Smooth browsing** — selection is compositor-only, so arrow-key moves never reflow the rail or replay the hero animation.
-- **Navigation sound** — a subtle console blip on every arrow-key move, played from a pre-loaded voice pool.
+- **Rich sound design** — WebAudio-synthesized cues for navigation, clicks, toggles, modal open/close, success, errors, game launch, and update ready; plus the original console blip. Volume and toggle in Settings.
 - **Arrange your way** — drag any tile to a new spot, or press `Alt` + `←`/`→`. The order is saved to your library.
 - **Remove from home** — a trash button on the focused game opens the same confirmation as Library → More options.
 - **Keyboard-first** — browse with the arrow keys, `Enter` to play, and `Ctrl+K` for fuzzy search.
 - **System tray** — close to the tray and keep tracking in the background.
+- **Reduce motion** — respects your system's `prefers-reduced-motion` setting for a calmer experience.
+
+### Updates & maintenance (v1.1.0)
+
+- **Automatic updates** — background check on launch, silent download, "Restart to install" when ready. GitHub Releases provider, no external services.
+- **Window state persistence** — remembers size, position, and maximized state across sessions; validates against current display layout.
+- **Backup export & restore** — full library (games, sessions, settings, artwork) as a single `.zip` or JSON fallback. Restore refuses while a game is running.
+- **What's new modal** — appears once per version with a changelog summary.
 
 ---
 
@@ -118,13 +127,17 @@ The window opens automatically. `Ctrl+Shift+I` opens DevTools.
 | `pnpm build:dir` | Build `release/win-unpacked/` only (fast) |
 | `pnpm smoke` | Playwright smoke test against the built app |
 | `pnpm smoke:pkg` | Smoke test against the packaged executable |
+| `pnpm typecheck` | TypeScript type checking |
+| `pnpm icon` | Regenerate icon set from `build/logo-source.png` |
 
 Artifacts land in `release/`:
 
 | File | Description |
 |------|-------------|
-| `Orca-1.0.0-x64.exe` | NSIS installer (per-user, optional install dir) |
-| `Orca-1.0.0-portable.exe` | Single-file portable executable |
+| `Orca-1.1.0-x64.exe` | NSIS installer (per-user, optional install dir) |
+| `Orca-1.1.0-portable.exe` | Single-file portable executable |
+| `Orca-1.1.0-x64.exe.blockmap` | Differential update blockmap |
+| `latest.yml` | Auto-update manifest for `electron-updater` |
 | `win-unpacked/Orca.exe` | Unpacked build for testing |
 
 ### Adding games
@@ -170,11 +183,13 @@ Orca is local-first by design. You do not need an account, and nothing is sent t
   data\
     orca-data.json   # games, settings, sessions (atomic writes)
     art\             # imported covers and hero images
+    window-state.json  # window bounds, position, maximized state
 ```
 
 - **Atomic saves** — writes go to a temp file and are renamed, so a crash cannot leave a half-written library.
 - **API keys stay local** — optional IGDB/RAWG credentials never leave your machine.
 - **Uninstalling keeps your library** — data is only removed if you delete `%APPDATA%\orca\` yourself.
+- **Backup & restore** — export your full library (games, sessions, settings, artwork) as a `.zip` or `.json` from Settings → Your data. Restore replaces everything in one click and refuses while a game is running.
 
 ### Custom data location
 
@@ -206,17 +221,21 @@ The directory is created automatically. Useful for portable libraries, isolated 
 src/
   main/                  Electron main process (ESM)
     index.ts             Lifecycle, IPC, tray, orca-art protocol
-    data-store.ts        JSON persistence, atomic writes, artwork import
+    data-store.ts        JSON persistence, atomic writes, artwork import, zip backup/restore
     session-manager.ts   Launch, process-tree polling, safe termination
     processes-win32.ts   koffi-based process snapshots
     scanner.ts           Folder scan, .lnk/.url resolution, icon extraction
+    updater.ts           electron-updater state machine (check/download/install)
+    window-state.ts      Window bounds persistence (atomic, display-validated)
   preload/               CJS bridge (sandbox: true)
   renderer/              React + Vite SPA
     src/pages/           Home, Library, Game, Playtime, Settings
     src/components/      Rail, artwork, search, toasts, dialogs
+    src/lib/audio.ts     WebAudio engine (synthesized cues + sample playback)
     src/styles/          Design system and layout
   shared/                Types, constants, formatters
 scripts/                 Smoke test, icon build, README screenshots
+.github/workflows/       CI (typecheck, lint, build, smoke) + Release
 ```
 
 Artwork is served over a custom `orca-art://` protocol, so local files load without weakening the renderer CSP:

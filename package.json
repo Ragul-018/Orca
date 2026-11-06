@@ -1,6 +1,6 @@
 {
   "name": "orca",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Orca — a local-first game library, launcher, and playtime tracker for Windows.",
   "main": "./out/main/index.js",
   "author": "Orca",
@@ -22,7 +22,9 @@
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
+    "adm-zip": "^0.6.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.11",
     "koffi": "^3.3.6",
     "lucide-react": "^1.66.0",
     "motion": "^14.9.0",
@@ -32,6 +34,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.6.0",
     "@types/node": "^24.10.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

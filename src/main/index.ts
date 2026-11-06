@@ -23,6 +23,8 @@ import { DataStore } from './data-store'
 import { SessionManager } from './session-manager'
 import { inspectExecutable, scanFolder } from './scanner'
 import { searchArtwork, downloadImageBuffer } from './artwork-fetcher'
+import { loadWindowState, trackWindowState } from './window-state'
+import { checkForUpdates, downloadUpdate, getUpdateStatus, initUpdater, installUpdate } from './updater'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -101,6 +103,10 @@ const settingsSchema = z
     confirmStopGame: z.boolean().optional(),
     showPlaytimeOnCards: z.boolean().optional(),
     trackExternalGames: z.boolean().optional(),
+    soundEnabled: z.boolean().optional(),
+    soundVolume: z.number().min(0).max(1).optional(),
+    reduceMotion: z.boolean().optional(),
+    autoCheckUpdates: z.boolean().optional(),
     rawgApiKey: z.string().max(200).optional(),
     igdbClientId: z.string().max(200).optional(),
     igdbClientSecret: z.string().max(200).optional()
@@ -198,9 +204,13 @@ function showSaveDialog(options: SaveDialogOptions): Promise<SaveDialogReturnVal
 }
 
 function createWindow(): void {
+  const saved = loadWindowState()
+
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: saved.width,
+    height: saved.height,
+    x: saved.x,
+    y: saved.y,
     minWidth: 1100,
     minHeight: 720,
     show: false,
@@ -219,9 +229,11 @@ function createWindow(): void {
     }
   })
 
+  trackWindowState(mainWindow)
   mainWindow.setMenu(null)
 
   mainWindow.once('ready-to-show', () => {
+    if (saved.maximized) mainWindow?.maximize()
     if (!startHidden) mainWindow?.show()
   })
 
@@ -464,12 +476,42 @@ function registerIpc(): void {
     const date = new Date().toISOString().slice(0, 10)
     const result = await showSaveDialog({
       title: 'Export Orca backup',
-      defaultPath: `orca-backup-${date}.json`,
-      filters: [{ name: 'JSON backup', extensions: ['json'] }]
+      defaultPath: `orca-backup-${date}.zip`,
+      filters: [
+        { name: 'Orca backup (library + artwork)', extensions: ['zip'] },
+        { name: 'JSON backup', extensions: ['json'] }
+      ]
     })
     if (result.canceled || !result.filePath) return null
     await store.exportBackup(result.filePath)
     return result.filePath
+  })
+
+  ipcMain.handle(IPC.restoreBackup, async () => {
+    if (sessions.getActiveSession()) {
+      throw new Error('Stop the running game before restoring a backup.')
+    }
+    const result = await showOpenDialog({
+      title: 'Restore an Orca backup',
+      properties: ['openFile'],
+      filters: [{ name: 'Orca backup', extensions: ['zip', 'json'] }]
+    })
+    if (result.canceled || !result.filePaths[0]) return false
+    await store.importBackup(result.filePaths[0])
+    broadcastLibrary()
+    return true
+  })
+
+  ipcMain.handle(IPC.updateGetStatus, () => getUpdateStatus())
+  ipcMain.handle(IPC.updateCheck, async () => checkForUpdates())
+  ipcMain.handle(IPC.updateDownload, async () => {
+    await downloadUpdate()
+  })
+  ipcMain.handle(IPC.updateInstall, () => {
+    if (getUpdateStatus().state !== 'ready') return
+    allowQuit = true
+    isQuitting = true
+    installUpdate()
   })
 
   ipcMain.handle(IPC.openDataFolder, async () => {
@@ -503,6 +545,7 @@ async function bootstrap(): Promise<void> {
   sessions = new SessionManager(store)
   registerProtocol()
   registerIpc()
+  initUpdater(sendToRenderer)
 
   sessions.on('session', (active) => {
     sendToRenderer(IPC.sessionChanged, active)
@@ -530,6 +573,13 @@ async function bootstrap(): Promise<void> {
   createWindow()
   createTray()
   broadcastLibrary()
+
+  // Check quietly after the window has settled; never block startup on the network.
+  if (store.getSettings().autoCheckUpdates) {
+    setTimeout(() => {
+      void checkForUpdates()
+    }, 7_000)
+  }
 
   app.on('second-instance', () => showWindow())
   app.on('activate', () => showWindow())

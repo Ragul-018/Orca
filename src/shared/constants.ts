@@ -21,9 +21,15 @@ export const IPC = {
   importArtworkUrl: 'artwork:import-url',
   revealGameFolder: 'game:reveal-folder',
   exportBackup: 'backup:export',
+  restoreBackup: 'backup:restore',
   openDataFolder: 'app:open-data-folder',
   windowAction: 'window:action',
+  updateCheck: 'update:check',
+  updateGetStatus: 'update:get-status',
+  updateDownload: 'update:download',
+  updateInstall: 'update:install',
   libraryChanged: 'event:library-changed',
   sessionChanged: 'event:session-changed',
-  toast: 'event:toast'
+  toast: 'event:toast',
+  updateStatus: 'event:update-status'
 } as const

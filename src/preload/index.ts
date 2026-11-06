@@ -11,6 +11,7 @@ import type {
   Settings,
   UpdateGameInput,
   UpdateSettingsInput,
+  UpdateStatus,
   WindowAction
 } from "@shared/types"
 import { IPC } from "@shared/constants"
@@ -43,12 +44,18 @@ const api: OrcaApi = {
     ipcRenderer.invoke(IPC.importArtworkUrl, url, kind) as Promise<string | null>,
   revealGameFolder: (id: string) => ipcRenderer.invoke(IPC.revealGameFolder, id),
   exportBackup: () => ipcRenderer.invoke(IPC.exportBackup) as Promise<string | null>,
+  restoreBackup: () => ipcRenderer.invoke(IPC.restoreBackup) as Promise<boolean>,
+  getUpdateStatus: () => ipcRenderer.invoke(IPC.updateGetStatus) as Promise<UpdateStatus>,
+  checkForUpdates: () => ipcRenderer.invoke(IPC.updateCheck) as Promise<UpdateStatus>,
+  downloadUpdate: () => ipcRenderer.invoke(IPC.updateDownload) as Promise<void>,
+  installUpdate: () => ipcRenderer.invoke(IPC.updateInstall) as Promise<void>,
   openDataFolder: () => ipcRenderer.invoke(IPC.openDataFolder),
   windowAction: (action: WindowAction) => ipcRenderer.invoke(IPC.windowAction, action),
   onLibraryChanged: (callback: (snapshot: AppSnapshot) => void) => subscribe(IPC.libraryChanged, callback),
   onSessionChanged: (callback: (session: ActiveSession | null) => void) =>
     subscribe(IPC.sessionChanged, callback),
-  onToast: (callback: (message: string) => void) => subscribe(IPC.toast, callback)
+  onToast: (callback: (message: string) => void) => subscribe(IPC.toast, callback),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscribe(IPC.updateStatus, callback)
 }
 
 contextBridge.exposeInMainWorld("orca", api)
