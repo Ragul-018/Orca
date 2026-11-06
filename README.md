@@ -235,7 +235,7 @@ src/
     src/styles/          Design system and layout
   shared/                Types, constants, formatters
 scripts/                 Smoke test, icon build, README screenshots
-.github/workflows/       CI (typecheck, lint, build, smoke) + Release
+.github/workflows/       CI (typecheck, build, smoke) + Release
 ```
 
 Artwork is served over a custom `orca-art://` protocol, so local files load without weakening the renderer CSP:
