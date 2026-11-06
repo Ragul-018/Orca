@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 env:
   PNPM_VERSION: 10.6.1
@@ -29,6 +30,9 @@ jobs:
         run: pnpm typecheck
       - name: Build
         run: pnpm build
+      - name: Electron diagnostics
+        run: |
+          node -e "const fs = require('fs'); const e = require('electron'); console.log('electron binary:', e); console.log('exists:', fs.existsSync(e)); console.log('ELECTRON_RUN_AS_NODE:', process.env.ELECTRON_RUN_AS_NODE || '(unset)');"
       - name: Smoke test
         run: pnpm smoke
       - name: Upload smoke screenshots

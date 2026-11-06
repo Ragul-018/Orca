@@ -12,9 +12,13 @@ await fs.rm(outDir, { recursive: true, force: true })
 await fs.mkdir(outDir, { recursive: true })
 await fs.rm(dataDir, { recursive: true, force: true })
 
+const launchArgs = ['--no-sandbox', '--disable-gpu']
+if (!packagedExe) launchArgs.push('.')
+const executablePath = packagedExe || path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe')
+
 const app = await electron.launch({
-  executablePath: packagedExe || path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe'),
-  args: packagedExe ? [] : ['.'],
+  executablePath,
+  args: launchArgs,
   cwd: root,
   env: { ...process.env, ORCA_USER_DATA: dataDir }
 })
