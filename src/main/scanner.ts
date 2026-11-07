@@ -127,13 +127,20 @@ export async function inspectExecutable(filePath: string): Promise<ExecutableCho
   }
 }
 
-export async function scanFolder(folder: string, store: DataStore): Promise<ScanCandidate[]> {
-  const root = path.resolve(folder)
+interface CollectOptions {
+  maxDepth?: number
+  maxVisited?: number
+  titleHint?: string
+}
+
+async function collectExecutables(root: string, options: CollectOptions = {}): Promise<FoundExecutable[]> {
+  const maxDepth = options.maxDepth ?? 4
+  const maxVisited = options.maxVisited ?? 8_000
   const found: FoundExecutable[] = []
   let visited = 0
 
   async function walk(directory: string, depth: number): Promise<void> {
-    if (depth > 4 || visited > 8_000) return
+    if (depth > maxDepth || visited > maxVisited) return
     let entries
     try {
       entries = await fs.readdir(directory, { withFileTypes: true })
@@ -143,7 +150,7 @@ export async function scanFolder(folder: string, store: DataStore): Promise<Scan
 
     for (const entry of entries) {
       visited += 1
-      if (visited > 8_000) return
+      if (visited > maxVisited) return
       const fullPath = path.join(directory, entry.name)
       if (entry.isDirectory()) {
         if (SKIP_DIRECTORIES.has(entry.name.toLowerCase())) continue
@@ -162,7 +169,7 @@ export async function scanFolder(folder: string, store: DataStore): Promise<Scan
           executablePath: fullPath,
           size: stat.size,
           modifiedAt: stat.mtime.toISOString(),
-          score: scoreExecutable(fullPath, root, stat.size)
+          score: scoreExecutable(fullPath, root, stat.size, options.titleHint)
         })
       } catch {
         // Skip unreadable executables.
@@ -171,14 +178,96 @@ export async function scanFolder(folder: string, store: DataStore): Promise<Scan
   }
 
   await walk(root, 0)
+  return dedupeExecutables(found)
+}
 
+function dedupeExecutables(found: FoundExecutable[]): FoundExecutable[] {
   const bestByExecutable = new Map<string, FoundExecutable>()
   for (const candidate of found.sort((a, b) => b.score - a.score)) {
     const key = candidate.executablePath.toLowerCase()
     if (!bestByExecutable.has(key)) bestByExecutable.set(key, candidate)
   }
+  return [...bestByExecutable.values()]
+}
 
-  const top = [...bestByExecutable.values()].slice(0, 12)
+async function inspectDirectoryExecutables(directory: string, root: string, titleHint?: string): Promise<FoundExecutable[]> {
+  let entries
+  try {
+    entries = await fs.readdir(directory, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const found: FoundExecutable[] = []
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.exe')) continue
+    if (EXCLUDED_EXE_PATTERNS.some((pattern) => pattern.test(entry.name))) continue
+    const fullPath = path.join(directory, entry.name)
+    if (isInsideSkippedDirectory(fullPath)) continue
+    try {
+      const stat = await fs.stat(fullPath)
+      if (stat.size < 64 * 1024) continue
+      found.push({
+        executablePath: fullPath,
+        size: stat.size,
+        modifiedAt: stat.mtime.toISOString(),
+        score: scoreExecutable(fullPath, root, stat.size, titleHint)
+      })
+    } catch {
+      // Skip unreadable executables.
+    }
+  }
+  return found
+}
+
+/**
+ * Resolve the most likely game executable inside an installed game folder.
+ * Checks common engine layouts first so large installs do not need a full walk.
+ */
+export async function findGameExecutable(
+  folder: string,
+  titleHint = ''
+): Promise<{ executablePath: string; workingDirectory: string; confidence: number; size: number } | null> {
+  const root = path.resolve(folder)
+  const priorityDirectories = [
+    root,
+    path.join(root, 'bin'),
+    path.join(root, 'bin', 'x64'),
+    path.join(root, 'bin', 'win64'),
+    path.join(root, 'Binaries', 'Win64'),
+    path.join(root, 'Game', 'Binaries', 'Win64'),
+    path.join(root, 'x64'),
+    path.join(root, 'win64'),
+    path.join(root, 'game'),
+    path.join(root, 'Game'),
+    path.join(root, 'build'),
+    path.join(root, 'release')
+  ]
+
+  let found: FoundExecutable[] = []
+  for (const directory of priorityDirectories) {
+    found.push(...(await inspectDirectoryExecutables(directory, root, titleHint)))
+  }
+  found = dedupeExecutables(found)
+
+  if (found.length === 0) {
+    found = await collectExecutables(root, { maxDepth: 5, maxVisited: 6_000, titleHint })
+  }
+
+  const best = found[0]
+  if (!best) return null
+  return {
+    executablePath: best.executablePath,
+    workingDirectory: path.dirname(best.executablePath),
+    confidence: Math.max(0, Math.min(100, best.score)),
+    size: best.size
+  }
+}
+
+export async function scanFolder(folder: string, store: DataStore): Promise<ScanCandidate[]> {
+  const root = path.resolve(folder)
+  const found = await collectExecutables(root, { maxDepth: 4, maxVisited: 8_000 })
+  const top = found.slice(0, 12)
   const candidates: ScanCandidate[] = []
 
   for (const candidate of top) {
@@ -218,11 +307,12 @@ function isInsideSkippedDirectory(filePath: string): boolean {
   return parts.some((part) => SKIP_DIRECTORIES.has(part))
 }
 
-function scoreExecutable(filePath: string, root: string, size: number): number {
+function scoreExecutable(filePath: string, root: string, size: number, titleHint = ''): number {
   const fileName = path.basename(filePath, path.extname(filePath)).toLowerCase()
   const executableDir = path.dirname(filePath)
   const folderName = path.basename(root).toLowerCase().replace(/[^a-z0-9]/g, '')
   const normalizedName = fileName.replace(/[^a-z0-9]/g, '')
+  const normalizedTitle = titleHint.toLowerCase().replace(/[^a-z0-9]/g, '')
   const relative = path.relative(root, filePath)
   const depth = relative.split(/[\\/]/).length - 1
 
@@ -232,6 +322,13 @@ function scoreExecutable(filePath: string, root: string, size: number): number {
   if (size >= 100 * 1024 * 1024) score += 14
   if (normalizedName === folderName) score += 42
   else if (normalizedName.includes(folderName) || folderName.includes(normalizedName)) score += 22
+  if (normalizedTitle && normalizedName === normalizedTitle) score += 34
+  else if (
+    normalizedTitle.length > 3 &&
+    (normalizedName.includes(normalizedTitle) || normalizedTitle.includes(normalizedName))
+  ) {
+    score += 18
+  }
   if (/shipping$/i.test(fileName)) score += 30
   if (/binaries[\\/]win64/i.test(executableDir)) score += 18
   if (depth <= 1) score += 14

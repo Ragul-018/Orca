@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react'
-import { FolderSearch, Plus, Search, X } from 'lucide-react'
+import { FolderSearch, Gamepad2, Plus, Search, X } from 'lucide-react'
 import type { GameStatus } from '@shared/types'
 import { useOrcaStore } from '../store'
 import { EmptyLibrary } from '../components/EmptyLibrary'
@@ -28,6 +28,7 @@ export function LibraryPage(): React.JSX.Element {
   const snapshot = useOrcaStore((state) => state.snapshot)
   const active = useOrcaStore((state) => state.activeSession)
   const openAddGame = useOrcaStore((state) => state.openAddGame)
+  const openSteamImport = useOrcaStore((state) => state.openSteamImport)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [sort, setSort] = useState<Sort>('recent')
@@ -82,6 +83,10 @@ export function LibraryPage(): React.JSX.Element {
           </p>
         </div>
         <div className="page-header__actions">
+          <button className="button button--glass" type="button" onClick={openSteamImport}>
+            <Gamepad2 size={16} />
+            Import Steam
+          </button>
           <button className="button button--glass" type="button" onClick={() => openAddGame(undefined, true)}>
             <FolderSearch size={16} />
             Scan folder

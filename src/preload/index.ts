@@ -9,6 +9,9 @@ import type {
   LaunchResult,
   OrcaApi,
   Settings,
+  SteamImportProgress,
+  SteamImportResult,
+  SteamLibraryScan,
   UpdateGameInput,
   UpdateSettingsInput,
   UpdateStatus,
@@ -35,6 +38,10 @@ const api: OrcaApi = {
   chooseExecutable: () => ipcRenderer.invoke(IPC.chooseExecutable) as Promise<ExecutableChoice | null>,
   chooseFolder: () => ipcRenderer.invoke(IPC.chooseFolder) as Promise<string | null>,
   scanFolder: () => ipcRenderer.invoke(IPC.scanFolder),
+  scanSteamLibrary: () => ipcRenderer.invoke(IPC.scanSteamLibrary) as Promise<SteamLibraryScan>,
+  importSteamGames: (appIds: number[]) =>
+    ipcRenderer.invoke(IPC.importSteamGames, appIds) as Promise<SteamImportResult>,
+  exportPlaytime: () => ipcRenderer.invoke(IPC.exportPlaytime) as Promise<string | null>,
   chooseArtwork: (kind: "cover" | "hero") => ipcRenderer.invoke(IPC.chooseArtwork, kind) as Promise<string | null>,
   fetchArtwork: (
     query: string,
@@ -55,7 +62,9 @@ const api: OrcaApi = {
   onSessionChanged: (callback: (session: ActiveSession | null) => void) =>
     subscribe(IPC.sessionChanged, callback),
   onToast: (callback: (message: string) => void) => subscribe(IPC.toast, callback),
-  onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscribe(IPC.updateStatus, callback)
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscribe(IPC.updateStatus, callback),
+  onSteamImportProgress: (callback: (progress: SteamImportProgress) => void) =>
+    subscribe(IPC.steamImportProgress, callback)
 }
 
 contextBridge.exposeInMainWorld("orca", api)

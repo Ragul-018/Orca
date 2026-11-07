@@ -4,6 +4,7 @@ import type {
   AddGameInput,
   AppSnapshot,
   Game,
+  SteamImportResult,
   UpdateGameInput,
   UpdateSettingsInput,
   UpdateStatus
@@ -48,6 +49,8 @@ interface OrcaStore {
   view: View
   history: View[]
   addGameModal: AddGameModalState
+  steamModalOpen: boolean
+  controllerConnected: boolean
   searchOpen: boolean
   confirm: ConfirmState | null
   toasts: Toast[]
@@ -59,6 +62,11 @@ interface OrcaStore {
   openGame: (gameId: string) => void
   openAddGame: (gameId?: string, startWithScan?: boolean) => void
   closeAddGame: () => void
+  openSteamImport: () => void
+  closeSteamImport: () => void
+  setControllerConnected: (connected: boolean) => void
+  importSteamGames: (appIds: number[]) => Promise<SteamImportResult | null>
+  exportPlaytime: () => Promise<void>
   openSearch: () => void
   closeSearch: () => void
   addToast: (message: string, tone?: Toast['tone']) => void
@@ -100,6 +108,8 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   view: { name: 'home' },
   history: [],
   addGameModal: { open: false, gameId: null, startWithScan: false },
+  steamModalOpen: false,
+  controllerConnected: false,
   searchOpen: false,
   confirm: null,
   toasts: [],
@@ -207,6 +217,54 @@ export const useOrcaStore = create<OrcaStore>((set, get) => ({
   closeAddGame: () => {
     playSound('close')
     set({ addGameModal: { open: false, gameId: null, startWithScan: false } })
+  },
+
+  openSteamImport: () => {
+    playSound('open')
+    set({ steamModalOpen: true, addGameModal: { open: false, gameId: null, startWithScan: false } })
+  },
+
+  closeSteamImport: () => {
+    playSound('close')
+    set({ steamModalOpen: false })
+  },
+
+  setControllerConnected: (connected) => set({ controllerConnected: connected }),
+
+  importSteamGames: async (appIds) => {
+    try {
+      const result = await window.orca.importSteamGames(appIds)
+      if (result.added > 0) {
+        playSound('success')
+        get().addToast(
+          `${result.added} Steam ${result.added === 1 ? 'game' : 'games'} added to your library.`,
+          'success'
+        )
+      }
+      if (result.failed.length > 0) {
+        get().addToast(
+          `${result.failed.length} Steam ${result.failed.length === 1 ? 'game' : 'games'} could not be imported.`
+        )
+      }
+      return result
+    } catch (error) {
+      playSound('error')
+      get().addToast(cleanErrorMessage(error))
+      return null
+    }
+  },
+
+  exportPlaytime: async () => {
+    try {
+      const path = await window.orca.exportPlaytime()
+      if (path) {
+        playSound('success')
+        get().addToast('Playtime history exported.', 'success')
+      }
+    } catch (error) {
+      playSound('error')
+      get().addToast(cleanErrorMessage(error))
+    }
   },
 
   openSearch: () => {

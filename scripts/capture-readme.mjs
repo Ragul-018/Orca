@@ -13,7 +13,9 @@ const dataDir = path.join(os.tmpdir(), 'orca-readme-data')
 const outDir = path.join(root, 'docs', 'screenshots')
 
 await fs.rm(dataDir, { recursive: true, force: true })
-await fs.cp(source, dataDir, { recursive: true })
+await fs.mkdir(dataDir, { recursive: true })
+// Copy only Orca's library data; Chromium session files may be locked by a running app.
+await fs.cp(path.join(source, 'data'), path.join(dataDir, 'data'), { recursive: true })
 await fs.mkdir(outDir, { recursive: true })
 
 const app = await electron.launch({
@@ -25,6 +27,13 @@ const app = await electron.launch({
 const page = await app.firstWindow()
 await page.waitForSelector('.app', { timeout: 30_000 })
 await page.waitForTimeout(1800)
+
+// Dismiss the one-time What's New modal so it does not cover the screenshots.
+const whatsNewClose = page.locator('.whats-new-close')
+if ((await whatsNewClose.count()) > 0) {
+  await whatsNewClose.click()
+  await page.waitForTimeout(500)
+}
 
 const snapshot = await page.evaluate(() => window.orca.getSnapshot())
 console.log(`library: ${snapshot.games.length} games, ${snapshot.sessions.length} sessions`)

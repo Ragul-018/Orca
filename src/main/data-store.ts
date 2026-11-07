@@ -24,6 +24,7 @@ interface StoredGame {
   workingDirectory: string
   runAsAdmin: boolean
   watchProcess: string
+  steamAppId: number | null
   coverArt: string | null
   heroArt: string | null
   description: string
@@ -81,6 +82,11 @@ function cleanRating(value: unknown): number | null {
   return Math.max(0, Math.min(5, Math.round(value)))
 }
 
+function cleanSteamAppId(value: unknown): number | null {
+  const appId = Number(value)
+  return Number.isInteger(appId) && appId > 0 ? appId : null
+}
+
 function newData(): StoredData {
   const now = new Date().toISOString()
   return {
@@ -111,6 +117,7 @@ function normalizeData(input: unknown): StoredData {
             workingDirectory: cleanString(item.workingDirectory),
             runAsAdmin: Boolean(item.runAsAdmin),
             watchProcess: cleanString(item.watchProcess),
+            steamAppId: cleanSteamAppId(item.steamAppId),
             coverArt: cleanString(item.coverArt) || null,
             heroArt: cleanString(item.heroArt) || null,
             description: cleanString(item.description),
@@ -143,7 +150,8 @@ function normalizeData(input: unknown): StoredData {
             source: item.source === 'external' ? 'external' : 'launcher',
             endReason: ['exited', 'stopped', 'recovered'].includes(String(item.endReason))
               ? (item.endReason as PlaySession['endReason'])
-              : 'exited'
+              : 'exited',
+            processName: cleanString(item.processName)
           } satisfies PlaySession
         })
         .filter((session) => session.gameId && session.startedAt)
@@ -168,6 +176,12 @@ function normalizeData(input: unknown): StoredData {
       typeof settings.autoCheckUpdates === 'boolean'
         ? settings.autoCheckUpdates
         : DEFAULT_SETTINGS.autoCheckUpdates
+    settings.gamepadEnabled =
+      typeof settings.gamepadEnabled === 'boolean'
+        ? settings.gamepadEnabled
+        : DEFAULT_SETTINGS.gamepadEnabled
+    settings.couchMode =
+      typeof settings.couchMode === 'boolean' ? settings.couchMode : DEFAULT_SETTINGS.couchMode
   }
 
   let activeSession: StoredActiveSession | null = null
@@ -300,6 +314,13 @@ export class DataStore {
     if (this.data.games.some((game) => game.executablePath.toLowerCase() === executablePath.toLowerCase())) {
       throw new Error('That executable is already in your library.')
     }
+    const steamAppId = cleanSteamAppId(input.steamAppId)
+    if (
+      steamAppId !== null &&
+      this.data.games.some((game) => game.steamAppId === steamAppId)
+    ) {
+      throw new Error('That Steam game is already in your library.')
+    }
 
     const now = new Date().toISOString()
     const stored: StoredGame = {
@@ -310,6 +331,7 @@ export class DataStore {
       workingDirectory: cleanString(input.workingDirectory) || path.dirname(executablePath),
       runAsAdmin: Boolean(input.runAsAdmin),
       watchProcess: cleanString(input.watchProcess),
+      steamAppId,
       coverArt: await this.resolveArtworkInput('cover', input.coverArt, input.coverSourcePath),
       heroArt: await this.resolveArtworkInput('hero', input.heroArt, input.heroSourcePath),
       description: cleanString(input.description),
@@ -357,6 +379,8 @@ export class DataStore {
       runAsAdmin: input.runAsAdmin !== undefined ? Boolean(input.runAsAdmin) : current.runAsAdmin,
       watchProcess:
         input.watchProcess !== undefined ? cleanString(input.watchProcess) : current.watchProcess,
+      steamAppId:
+        input.steamAppId !== undefined ? cleanSteamAppId(input.steamAppId) : current.steamAppId,
       coverArt:
         input.coverArt !== undefined || input.coverSourcePath
           ? await this.resolveArtworkInput('cover', input.coverArt, input.coverSourcePath)

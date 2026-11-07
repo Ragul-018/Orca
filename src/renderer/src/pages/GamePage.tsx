@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Clock3,
   FolderOpen,
+  Gamepad2,
   Heart,
   LoaderCircle,
   MoreHorizontal,
@@ -88,6 +89,12 @@ export function GamePage({ gameId }: { gameId: string }): React.JSX.Element {
             {meta.map((item) => (
               <span key={item}>{item}</span>
             ))}
+            {game.steamAppId && (
+              <span className="steam-chip">
+                <Gamepad2 size={12} />
+                Steam
+              </span>
+            )}
             {game.rating !== null && game.rating > 0 && (
               <span className="rating-inline" aria-label={`${game.rating} out of 5 stars`}>
                 {Array.from({ length: 5 }).map((_, index) => (
@@ -238,8 +245,13 @@ export function GamePage({ gameId }: { gameId: string }): React.JSX.Element {
                           hour: 'numeric',
                           minute: '2-digit'
                         })}
-                        {session.endReason === 'recovered' ? ' · recovered' : ''}
+                        {session.endReason === 'stopped'
+                          ? ' · stopped from Orca'
+                          : session.endReason === 'recovered'
+                            ? ' · recovered after restart'
+                            : ' · exited'}
                         {session.source === 'external' ? ' · auto-tracked' : ''}
+                        {session.processName ? ` · ${session.processName}` : ''}
                       </small>
                     </div>
                     <span>{formatDuration(session.durationMs, { includeSeconds: true })}</span>
@@ -303,6 +315,12 @@ export function GamePage({ gameId }: { gameId: string }): React.JSX.Element {
                 <dt>Added</dt>
                 <dd>{formatDate(game.addedAt)}</dd>
               </div>
+              {game.steamAppId && (
+                <div>
+                  <dt>Steam app</dt>
+                  <dd>{game.steamAppId}</dd>
+                </div>
+              )}
               <div>
                 <dt>Launch mode</dt>
                 <dd>{game.runAsAdmin ? 'Administrator' : 'Standard'}</dd>

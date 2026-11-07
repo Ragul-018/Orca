@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
+  Gamepad2,
   Heart,
   LibraryBig,
   LoaderCircle,
@@ -28,6 +29,7 @@ export function HomePage(): React.JSX.Element {
   const active = useOrcaStore((state) => state.activeSession)
   const navigate = useOrcaStore((state) => state.navigate)
   const openAddGame = useOrcaStore((state) => state.openAddGame)
+  const openSteamImport = useOrcaStore((state) => state.openSteamImport)
   const launchGame = useOrcaStore((state) => state.launchGame)
   const stopSession = useOrcaStore((state) => state.stopActiveSession)
   const stopping = useOrcaStore((state) => state.stopping)
@@ -248,6 +250,7 @@ export function HomePage(): React.JSX.Element {
                   dropId === game.id && 'is-drop-target'
                 )}
                 data-game-id={game.id}
+                data-gamepad-default={selected ? 'true' : undefined}
                 title={`${game.title} — drag to rearrange`}
                 onClick={() => {
                   if (!selected) playSound('nav')
@@ -497,6 +500,10 @@ export function HomePage(): React.JSX.Element {
         <button className="ps5-home__add" type="button" onClick={() => openAddGame()}>
           <Plus size={14} />
           Add game
+        </button>
+        <button className="ps5-home__add ps5-home__add--steam" type="button" onClick={openSteamImport}>
+          <Gamepad2 size={14} />
+          Import Steam
         </button>
       </footer>
     </div>

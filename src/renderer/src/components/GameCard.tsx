@@ -32,6 +32,7 @@ export function GameCard({ game, showPlaytime = true, anotherGameRunning = false
       className={`game-card ${isActive ? 'is-playing' : ''}`}
       role="button"
       tabIndex={0}
+      data-game-id={game.id}
       onClick={() => openGame(game.id)}
       onMouseMove={handleMove}
       onKeyDown={(event) => {

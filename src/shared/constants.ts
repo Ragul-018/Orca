@@ -1,7 +1,7 @@
 export const APP_NAME = 'Orca'
 export const APP_ID = 'app.orca.launcher'
 export const PROTOCOL = 'orca-art'
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 export const IPC = {
   getSnapshot: 'app:get-snapshot',
@@ -16,6 +16,8 @@ export const IPC = {
   chooseExecutable: 'dialog:choose-executable',
   chooseFolder: 'dialog:choose-folder',
   scanFolder: 'scan:folder',
+  scanSteamLibrary: 'steam:scan-library',
+  importSteamGames: 'steam:import-games',
   chooseArtwork: 'dialog:choose-artwork',
   fetchArtwork: 'artwork:fetch',
   importArtworkUrl: 'artwork:import-url',
@@ -23,6 +25,7 @@ export const IPC = {
   exportBackup: 'backup:export',
   restoreBackup: 'backup:restore',
   openDataFolder: 'app:open-data-folder',
+  exportPlaytime: 'stats:export-playtime',
   windowAction: 'window:action',
   updateCheck: 'update:check',
   updateGetStatus: 'update:get-status',
@@ -31,5 +34,6 @@ export const IPC = {
   libraryChanged: 'event:library-changed',
   sessionChanged: 'event:session-changed',
   toast: 'event:toast',
-  updateStatus: 'event:update-status'
+  updateStatus: 'event:update-status',
+  steamImportProgress: 'event:steam-import-progress'
 } as const

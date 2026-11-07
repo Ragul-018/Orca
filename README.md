@@ -28,17 +28,20 @@ Console-inspired. No account. No telemetry.
 
 |  | File | Description |
 |:--|:-----|:------------|
-| 🖥️ | **[Orca-1.1.0-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
-| 🎒 | **[Orca-1.1.0-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
+| 🖥️ | **[Orca-1.2.0-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
+| 🎒 | **[Orca-1.2.0-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
 
 ### Install
 
-1. Download **`Orca-1.1.0-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
+1. Download **`Orca-1.2.0-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
 2. Run it, choose an install folder, and finish the wizard.
 3. Open **Orca** from the Start menu or desktop shortcut.
 
 > [!NOTE]
 > The build is currently unsigned, so Windows SmartScreen may warn you. Choose **More info → Run anyway**.
+
+> [!IMPORTANT]
+> **Upgrading from 1.0.0?** Auto-update starts with 1.1.0. If you are still on 1.0.0, install 1.2.0 manually once; every later version updates itself from inside the app.
 
 ### Requirements
 
@@ -66,6 +69,7 @@ Console-inspired. No account. No telemetry.
 ### Library
 
 - **Automatic artwork & metadata** — search Steam with no API key and fill the title, developer, year, genres, synopsis, cover, and hero art in one click. IGDB and RAWG keys are optional extras.
+- **Steam library import** — Orca reads `libraryfolders.vdf` and every `appmanifest_*.acf`, lists your installed Steam games, resolves the executables, and pulls official Steam covers. No API key, no account, nothing uploaded.
 - **Folder scan** — point Orca at a directory and it picks up `.exe`, `.lnk`, `.url`, `.bat`, and `.cmd` files, resolving shortcuts and extracting embedded icons.
 - **Favourites, filters, ratings, and status** — spotlight what matters and keep a real backlog.
 - **Manual import** — add anything with a title, executable path, and optional launch arguments.
@@ -73,12 +77,19 @@ Console-inspired. No account. No telemetry.
 ### Play & track
 
 - **Accurate playtime** — wall-clock sessions from launch to stop or natural exit, written to disk the moment a session ends.
+- **The full playtime record** — all-time totals, weekly rhythm, 30-day and 12-month charts, a 26-week heatmap, current and best streaks, time-of-day patterns, per-game breakdowns, and a filterable, searchable session history with CSV export.
 - **Safe game termination** — Orca tracks the exact process IDs it launched and stops only those. It never runs a broad `taskkill /IM`.
 - **External-game tracking** — optionally detect games launched from the desktop or another launcher.
-- **Stats dashboard** — weekly rhythm, all-time totals, recent sessions, and per-game history.
+
+### Couch mode & controllers
+
+- **Controller navigation** — plug in a gamepad and browse the whole interface with the d-pad or left stick. Focus rings stay visible on every control.
+- **Play from the sofa** — `A` selects or launches the focused game, `X` plays or stops, `Y` favorites, `B` goes back, `LB`/`RB` switch tabs, and `Menu` opens search. Contextual button hints sit at the bottom of the screen.
+- **Couch mode** — larger type, roomier controls, and a stronger focus ring for TV-sized viewing. Toggle both options in Settings → Gameplay.
 
 ### Interface
 
+- **A simpler add flow** — start with one clear choice: choose a game executable, scan a folder and add several games at once, import from Steam, or enter details manually. Metadata, artwork, and launch options stay tucked away until you need them.
 - **Console-style home** — full-bleed artwork, a horizontal game rail, and a focused tile that scales up as you browse.
 - **Smooth browsing** — selection is compositor-only, so arrow-key moves never reflow the rail or replay the hero animation.
 - **Rich sound design** — WebAudio-synthesized cues for navigation, clicks, toggles, modal open/close, success, errors, game launch, and update ready; plus the original console blip. Volume and toggle in Settings.
@@ -88,9 +99,9 @@ Console-inspired. No account. No telemetry.
 - **System tray** — close to the tray and keep tracking in the background.
 - **Reduce motion** — respects your system's `prefers-reduced-motion` setting for a calmer experience.
 
-### Updates & maintenance (v1.1.0)
+### Updates & maintenance (v1.2.0)
 
-- **Automatic updates** — background check on launch, silent download, "Restart to install" when ready. GitHub Releases provider, no external services.
+- **Automatic updates** — background check on launch, silent download, "Restart to install" when ready. GitHub Releases provider, no external services. Auto-update starts with 1.1.0; 1.0.0 needs a one-time manual install.
 - **Window state persistence** — remembers size, position, and maximized state across sessions; validates against current display layout.
 - **Backup export & restore** — full library (games, sessions, settings, artwork) as a single `.zip` or JSON fallback. Restore refuses while a game is running.
 - **What's new modal** — appears once per version with a changelog summary.
@@ -134,18 +145,21 @@ Artifacts land in `release/`:
 
 | File | Description |
 |------|-------------|
-| `Orca-1.1.0-x64.exe` | NSIS installer (per-user, optional install dir) |
-| `Orca-1.1.0-portable.exe` | Single-file portable executable |
-| `Orca-1.1.0-x64.exe.blockmap` | Differential update blockmap |
+| `Orca-1.2.0-x64.exe` | NSIS installer (per-user, optional install dir) |
+| `Orca-1.2.0-portable.exe` | Single-file portable executable |
+| `Orca-1.2.0-x64.exe.blockmap` | Differential update blockmap |
 | `latest.yml` | Auto-update manifest for `electron-updater` |
 | `win-unpacked/Orca.exe` | Unpacked build for testing |
 
 ### Adding games
 
-1. Click **Add game** in the top bar.
-2. Fill in the **Details** tab — only the title is required.
-3. Open the **Artwork** tab and pick a Steam match; **Apply to game** fills every empty field.
-4. Switch to **Launch setup**, choose the executable, and click **Add to Orca**.
+1. Click **Add game** in the top bar, or **Import Steam** for your Steam shelf.
+2. Pick a source:
+   - **Choose a game** — select an `.exe`, `.lnk`, `.url`, `.bat`, or `.cmd`; Orca fills in the title and looks up artwork.
+   - **Scan a folder** — review every executable found and add several games at once.
+   - **Import from Steam** — select installed Steam games; Orca resolves the executable and downloads the official cover.
+   - **Enter details manually** — only a title is required, with optional metadata, artwork, and launch options.
+3. Click **Add to Orca**. Artwork is looked up automatically in the background.
 
 | Type | Launched as |
 |------|-------------|
@@ -158,7 +172,7 @@ Artifacts land in `release/`:
 
 1. Preload API is present.
 2. Empty state renders on first run.
-3. Add-game modal accepts and saves every field.
+3. The add flow offers every source and saves a full manual entry.
 4. Home, Library, Game, Search, Stats, and Settings all render.
 5. Arrow-key selection never moves the neighbouring rail tiles.
 6. `Alt` + arrow and drag-and-drop both persist a new home order.
@@ -166,9 +180,11 @@ Artifacts land in `release/`:
 8. Play launches the target process.
 9. `koffi` process-tree tracking fires the running chip.
 10. Stop confirmation closes immediately and finalises the session.
-11. Playtime and sessions persist to `orca-data.json`.
-12. Stats shows the recorded session.
-13. No console or page errors.
+11. Playtime, session source, end reason, and process name persist to `orca-data.json`.
+12. The detailed Playtime dashboard shows the recorded session.
+13. Steam import against a synthetic library adds games, resolves executables, and downloads covers.
+14. Mocked controller input switches tabs, moves focus, opens a game, and toggles a favorite.
+15. No console or page errors.
 
 Screenshots are written to `%TEMP%\orca-smoke-<dev|packaged>\`.
 
@@ -215,6 +231,22 @@ The directory is created automatically. Useful for portable libraries, isolated 
 
 ---
 
+## Controller shortcuts
+
+| Button | Action |
+|--------|--------|
+| D-pad / left stick | Move focus |
+| `A` | Select, or launch the focused game |
+| `X` | Play or stop the focused game |
+| `Y` | Favorite the focused game |
+| `B` | Back or close the top overlay |
+| `LB` / `RB` | Previous / next tab |
+| `Menu` | Search your library |
+
+Enable **Controller navigation** and **Couch mode** in Settings → Gameplay.
+
+---
+
 ## Architecture
 
 ```
@@ -225,13 +257,15 @@ src/
     session-manager.ts   Launch, process-tree polling, safe termination
     processes-win32.ts   koffi-based process snapshots
     scanner.ts           Folder scan, .lnk/.url resolution, icon extraction
+    steam.ts             Steam library discovery, VDF/ACF parsing, executable resolution, artwork import
     updater.ts           electron-updater state machine (check/download/install)
     window-state.ts      Window bounds persistence (atomic, display-validated)
   preload/               CJS bridge (sandbox: true)
   renderer/              React + Vite SPA
     src/pages/           Home, Library, Game, Playtime, Settings
-    src/components/      Rail, artwork, search, toasts, dialogs
+    src/components/      Rail, artwork, search, toasts, dialogs, Steam import, gamepad layer
     src/lib/audio.ts     WebAudio engine (synthesized cues + sample playback)
+    src/lib/playtime.ts  Daily/monthly series, streaks, heatmap, session filters
     src/styles/          Design system and layout
   shared/                Types, constants, formatters
 scripts/                 Smoke test, icon build, README screenshots
@@ -263,7 +297,8 @@ orca-art://art/<sha256>  ->  %APPDATA%\orca\data\art\<sha256>.{png,jpg,webp,gif}
 ## Known limitations
 
 - **Windows only** — process enumeration uses the Win32 `TlHelp32` API.
-- **No store auto-import** — Steam, Epic, GOG, and Xbox libraries are not imported automatically; use manual add or folder scan.
+- **Steam import is local** — Orca reads installed games from local Steam libraries. It does not download games, and Epic, GOG, and Xbox libraries are not imported automatically yet.
+- **Steam artwork needs a connection** — covers come from public Steam CDN URLs; offline imports fall back to generated art.
 - **External tracking false positives** — generic executables like `cmd.exe` can match; disable the setting if that happens.
 - **Unsigned builds** — SmartScreen warnings are expected until a code-signing certificate is added.
 

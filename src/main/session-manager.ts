@@ -52,7 +52,8 @@ export class SessionManager extends EventEmitter {
         endedAt: persisted.lastSeenAt,
         durationMs,
         source: persisted.source,
-        endReason: 'recovered'
+        endReason: 'recovered',
+        processName: persisted.watchName
       }
       try {
         await this.store.addSession(session)
@@ -319,7 +320,8 @@ export class SessionManager extends EventEmitter {
       endedAt,
       durationMs,
       source: active.source,
-      endReason: reason
+      endReason: reason,
+      processName: active.watchName
     }
 
     try {

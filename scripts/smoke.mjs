@@ -12,6 +12,31 @@ await fs.rm(outDir, { recursive: true, force: true })
 await fs.mkdir(outDir, { recursive: true })
 await fs.rm(dataDir, { recursive: true, force: true })
 
+// A synthetic Steam install lets the smoke test exercise the real import path
+// without touching the machine's actual Steam library.
+const fakeSteam = path.join(outDir, 'fake-steam')
+const fakeLibrary = path.join(outDir, 'fake-library')
+const fakeHollow = path.join(fakeSteam, 'steamapps', 'common', 'HollowKnight')
+const fakePortal = path.join(fakeLibrary, 'steamapps', 'common', 'Portal2')
+await fs.mkdir(fakeHollow, { recursive: true })
+await fs.mkdir(fakePortal, { recursive: true })
+await fs.mkdir(path.join(fakeLibrary, 'steamapps'), { recursive: true })
+await fs.copyFile('C:\\Windows\\System32\\cmd.exe', path.join(fakeHollow, 'HollowKnight.exe'))
+await fs.copyFile('C:\\Windows\\System32\\cmd.exe', path.join(fakePortal, 'Portal2.exe'))
+const vdfPath = (value) => value.replace(/\\/g, '\\\\')
+await fs.writeFile(
+  path.join(fakeSteam, 'steamapps', 'libraryfolders.vdf'),
+  `"libraryfolders"\n{\n\t"0"\n\t{\n\t\t"path"\t\t"${vdfPath(fakeSteam)}"\n\t}\n\t"1"\n\t{\n\t\t"path"\t\t"${vdfPath(fakeLibrary)}"\n\t}\n}\n`
+)
+await fs.writeFile(
+  path.join(fakeSteam, 'steamapps', 'appmanifest_367520.acf'),
+  `"AppState"\n{\n\t"appid"\t\t"367520"\n\t"name"\t\t"Hollow Knight"\n\t"StateFlags"\t\t"4"\n\t"installdir"\t\t"HollowKnight"\n\t"SizeOnDisk"\t\t"9000000000"\n\t"LastPlayed"\t\t"1700000000"\n}\n`
+)
+await fs.writeFile(
+  path.join(fakeLibrary, 'steamapps', 'appmanifest_620.acf'),
+  `"AppState"\n{\n\t"appid"\t\t"620"\n\t"name"\t\t"Portal 2"\n\t"StateFlags"\t\t"4"\n\t"installdir"\t\t"Portal2"\n\t"SizeOnDisk"\t\t"12000000000"\n\t"LastPlayed"\t\t"1690000000"\n}\n`
+)
+
 const launchArgs = ['--no-sandbox', '--disable-gpu']
 if (!packagedExe) launchArgs.push('.')
 const executablePath = packagedExe || path.join(root, 'node_modules', 'electron', 'dist', 'electron.exe')
@@ -20,7 +45,7 @@ const app = await electron.launch({
   executablePath,
   args: launchArgs,
   cwd: root,
-  env: { ...process.env, ORCA_USER_DATA: dataDir }
+  env: { ...process.env, ORCA_USER_DATA: dataDir, ORCA_STEAM_PATH: fakeSteam }
 })
 
 const issues = []
@@ -50,9 +75,14 @@ await shot('01-empty-home')
 // Add a game through the real UI.
 await page.getByRole('button', { name: 'Add your first game' }).click()
 await page.waitForSelector('.add-game-modal')
-await shot('02-add-details')
+await shot('02-add-source')
+
+await page.getByRole('button', { name: 'Enter details manually' }).click()
+await page.waitForSelector('.add-game-modal__body--quick')
+await shot('02b-add-details')
 
 await page.getByLabel('Game title').fill('Depth Charge')
+await page.locator('.form-more summary').first().click()
 await page.getByLabel('Developer').fill('Abyssal Works')
 await page.getByLabel('Year').fill('2026')
 await page.getByLabel('Genres').fill('Action, Arcade')
@@ -64,9 +94,9 @@ await page.getByRole('button', { name: '4 stars' }).click()
 await page.getByRole('button', { name: 'Add to favorites' }).click()
 await shot('03-add-details-filled')
 
-await page.getByRole('tab', { name: 'Launch setup' }).click()
-await page.locator('.exe-picker input').fill('C:\\Windows\\System32\\cmd.exe')
-await page.getByText('Launch arguments').locator('..').getByRole('textbox').fill('/c ping -t 127.0.0.1')
+await page.locator('.form-more summary').nth(1).click()
+await page.getByLabel('Game executable').fill('C:\\Windows\\System32\\cmd.exe')
+await page.getByLabel('Launch arguments').fill('/c ping -t 127.0.0.1')
 await shot('04-add-launch')
 await page.getByRole('button', { name: 'Add to Orca' }).click()
 await page.waitForSelector('.add-game-modal', { state: 'detached' })
@@ -200,6 +230,93 @@ await shot('13-stats-with-playtime')
 await page.getByRole('button', { name: 'Library', exact: true }).click()
 await page.waitForSelector('.game-grid')
 await shot('14-library-after-play')
+
+// Steam import through the real UI against the synthetic Steam library.
+await page.getByRole('button', { name: 'Import Steam', exact: true }).click()
+await page.waitForSelector('.steam-modal')
+await page.waitForSelector('.steam-row', { timeout: 30_000 })
+const steamRows = await page.locator('.steam-row').count()
+console.log('steam rows:', steamRows)
+if (steamRows !== 2) issues.push(`expected 2 Steam rows, found ${steamRows}`)
+await shot('15-steam-import')
+
+await page.getByRole('button', { name: 'Select all' }).click()
+await page.getByRole('button', { name: /Import 2 games/ }).click()
+await page.waitForSelector('.steam-result', { timeout: 90_000 })
+await shot('16-steam-imported')
+
+const afterSteam = await page.evaluate(() => window.orca.getSnapshot())
+const steamTitles = afterSteam.games.map((item) => item.title)
+console.log('games after steam import:', steamTitles)
+for (const title of ['Hollow Knight', 'Portal 2']) {
+  if (!steamTitles.includes(title)) issues.push(`Steam import did not add ${title}`)
+}
+const importedSteamGame = afterSteam.games.find((item) => item.title === 'Hollow Knight')
+if (!importedSteamGame?.steamAppId) issues.push('Steam app id was not persisted')
+console.log('steam artwork downloaded:', Boolean(importedSteamGame?.coverArt))
+
+await page.getByRole('button', { name: 'View library' }).click()
+await page.waitForSelector('.game-grid')
+await page.waitForTimeout(500)
+await shot('17-library-with-steam')
+
+// Mock a standard gamepad so the couch-mode layer can be exercised without hardware.
+await page.evaluate(() => {
+  const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }))
+  const pad = {
+    connected: true,
+    id: 'Orca Smoke Pad',
+    index: 0,
+    mapping: 'standard',
+    axes: [0, 0, 0, 0],
+    buttons,
+    timestamp: performance.now()
+  }
+  window.__orcaMockPad = pad
+  Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true })
+  window.dispatchEvent(new Event('gamepadconnected'))
+})
+await page.waitForSelector('.gamepad-hints', { timeout: 5_000 })
+await shot('18-gamepad-hints')
+
+const press = async (index, hold = 140) => {
+  await page.evaluate((buttonIndex) => {
+    window.__orcaMockPad.buttons[buttonIndex].pressed = true
+  }, index)
+  await page.waitForTimeout(hold)
+  await page.evaluate((buttonIndex) => {
+    window.__orcaMockPad.buttons[buttonIndex].pressed = false
+  }, index)
+  await page.waitForTimeout(160)
+}
+
+await press(5) // RB -> Playtime
+await page.waitForSelector('.stats-page')
+console.log('gamepad tab switch: stats')
+await press(4) // LB -> Library
+await page.waitForSelector('.library-page')
+
+await page.locator('.game-card').first().focus()
+const focusBefore = await page.evaluate(() => document.activeElement?.getAttribute('data-game-id'))
+await press(15) // D-pad right
+const focusAfter = await page.evaluate(() => document.activeElement?.getAttribute('data-game-id'))
+console.log('gamepad focus moved:', focusBefore, '->', focusAfter)
+if (!focusAfter) issues.push('gamepad focus did not land on a game card')
+if (await page.locator('[data-gamepad-focus="true"]').count() === 0) {
+  issues.push('gamepad focus ring was not applied')
+}
+
+await page.locator('.game-card').first().focus()
+await press(0) // A -> open the focused game
+await page.waitForSelector('.game-page', { timeout: 5_000 })
+const favoriteBefore = await page.evaluate(() => window.orca.getSnapshot().then((s) => s.games[0].favorite))
+await press(3) // Y -> favorite
+const favoriteAfter = await page.evaluate(() => window.orca.getSnapshot().then((s) => s.games[0].favorite))
+console.log('gamepad favorite toggle:', favoriteBefore, '->', favoriteAfter)
+if (favoriteBefore === favoriteAfter) issues.push('gamepad favorite toggle did not persist')
+await press(1) // B -> back
+await page.waitForSelector('.library-page', { timeout: 5_000 })
+await shot('19-gamepad-navigated')
 
 console.log('issues:', issues.length ? `\n${issues.join('\n')}` : '(none)')
 console.log('screenshots:', outDir)

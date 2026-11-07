@@ -1,9 +1,10 @@
-import { Clock3, FolderSearch, HardDrive, ImagePlus, Plus } from 'lucide-react'
+import { Clock3, FolderSearch, Gamepad2, HardDrive, ImagePlus, Plus } from 'lucide-react'
 import { useOrcaStore } from '../store'
 import { OrcaMark } from './Logo'
 
 export function EmptyLibrary({ variant = 'home' }: { variant?: 'home' | 'library' }): React.JSX.Element {
   const openAddGame = useOrcaStore((state) => state.openAddGame)
+  const openSteamImport = useOrcaStore((state) => state.openSteamImport)
 
   return (
     <section className={`empty-library empty-library--${variant}`}>
@@ -41,6 +42,10 @@ export function EmptyLibrary({ variant = 'home' }: { variant?: 'home' | 'library
           >
             <FolderSearch size={17} />
             Scan a folder
+          </button>
+          <button className="button button--glass button--large" type="button" onClick={openSteamImport}>
+            <Gamepad2 size={17} />
+            Import from Steam
           </button>
         </div>
         <div className="empty-library__features">

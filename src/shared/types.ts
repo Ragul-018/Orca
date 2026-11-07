@@ -17,6 +17,7 @@ export interface Game {
   workingDirectory: string
   runAsAdmin: boolean
   watchProcess: string
+  steamAppId: number | null
   coverArt: string | null
   heroArt: string | null
   description: string
@@ -52,6 +53,7 @@ export interface AddGameInput {
   favorite?: boolean
   status?: GameStatus
   rating?: number | null
+  steamAppId?: number | null
   coverArt?: string | null
   heroArt?: string | null
   coverSourcePath?: string | null
@@ -71,6 +73,8 @@ export interface PlaySession {
   durationMs: number
   source: 'launcher' | 'external'
   endReason: 'exited' | 'stopped' | 'recovered'
+  /** Process name Orca watched while this session was tracked. */
+  processName?: string
 }
 
 export interface ActiveSession {
@@ -93,6 +97,8 @@ export interface Settings {
   soundVolume: number
   reduceMotion: boolean
   autoCheckUpdates: boolean
+  gamepadEnabled: boolean
+  couchMode: boolean
   rawgApiKey: string
   igdbClientId: string
   igdbClientSecret: string
@@ -109,6 +115,8 @@ export const DEFAULT_SETTINGS: Settings = {
   soundVolume: 0.55,
   reduceMotion: false,
   autoCheckUpdates: true,
+  gamepadEnabled: true,
+  couchMode: false,
   rawgApiKey: '',
   igdbClientId: '',
   igdbClientSecret: ''
@@ -183,6 +191,45 @@ export interface ExecutableChoice {
   launchArguments: string
 }
 
+export interface SteamGame {
+  appId: number
+  title: string
+  installDir: string
+  libraryPath: string
+  executablePath: string | null
+  workingDirectory: string
+  launchArguments: string
+  sizeOnDisk: number
+  lastPlayedAt: string | null
+  coverUrl: string
+  heroUrl: string
+  headerUrl: string
+  alreadyInLibrary: boolean
+  confidence: number
+  stateFlags: number
+}
+
+export interface SteamLibraryScan {
+  steamPath: string
+  libraries: string[]
+  games: SteamGame[]
+}
+
+export interface SteamImportProgress {
+  appId: number
+  title: string
+  index: number
+  total: number
+  stage: 'artwork' | 'saving' | 'done' | 'skipped' | 'error'
+  message?: string
+}
+
+export interface SteamImportResult {
+  added: number
+  skipped: number
+  failed: Array<{ appId: number; title: string; error: string }>
+}
+
 export interface LaunchResult {
   ok: boolean
   error?: string
@@ -206,6 +253,9 @@ export interface OrcaApi {
   chooseExecutable: () => Promise<ExecutableChoice | null>
   chooseFolder: () => Promise<string | null>
   scanFolder: () => Promise<{ folder: string; candidates: ScanCandidate[] } | null>
+  scanSteamLibrary: () => Promise<SteamLibraryScan>
+  importSteamGames: (appIds: number[]) => Promise<SteamImportResult>
+  exportPlaytime: () => Promise<string | null>
   chooseArtwork: (kind: 'cover' | 'hero') => Promise<string | null>
   fetchArtwork: (
     query: string,
@@ -225,4 +275,5 @@ export interface OrcaApi {
   onSessionChanged: (callback: (session: ActiveSession | null) => void) => () => void
   onToast: (callback: (message: string) => void) => () => void
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void
+  onSteamImportProgress: (callback: (progress: SteamImportProgress) => void) => () => void
 }

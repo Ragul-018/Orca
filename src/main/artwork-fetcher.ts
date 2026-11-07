@@ -15,6 +15,14 @@ const STEAM_HERO = (appId: number): string =>
 const STEAM_CAPSULE = (appId: number): string =>
   `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`
 
+export function steamArtworkUrls(appId: number): { cover: string; hero: string; header: string } {
+  return {
+    cover: STEAM_CAPSULE(appId),
+    hero: STEAM_HERO(appId),
+    header: STEAM_HEADER(appId)
+  }
+}
+
 const RAWG_BASE = 'https://api.rawg.io/api'
 
 // Cache Twitch OAuth token in memory

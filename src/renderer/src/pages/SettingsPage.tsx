@@ -1,6 +1,7 @@
 import {
   Download,
   FolderOpen,
+  Gamepad2,
   HardDrive,
   Image,
   Keyboard,
@@ -118,6 +119,7 @@ export function SettingsPage(): React.JSX.Element {
   const downloadUpdate = useOrcaStore((state) => state.downloadUpdate)
   const installUpdate = useOrcaStore((state) => state.installUpdate)
   const updateStatus = useOrcaStore((state) => state.updateStatus)
+  const controllerConnected = useOrcaStore((state) => state.controllerConnected)
   const playSound = useOrcaStore((state) => state.playSound)
 
   if (!snapshot) return <></>
@@ -218,6 +220,26 @@ export function SettingsPage(): React.JSX.Element {
               checked={settings.showPlaytimeOnCards}
               onChange={(value) => set({ showPlaytimeOnCards: value })}
             />
+            <SettingRow
+              title="Controller navigation"
+              description="Browse the whole interface with a gamepad. D-pad or left stick moves focus, A selects, X plays or stops, Y favorites, and B goes back."
+              checked={settings.gamepadEnabled}
+              onChange={(value) => set({ gamepadEnabled: value })}
+            />
+            <SettingRow
+              title="Couch mode"
+              description="Larger type, roomier controls, and a stronger focus ring for playing from the sofa or a TV."
+              checked={settings.couchMode}
+              onChange={(value) => set({ couchMode: value })}
+            />
+            <div className="settings-note">
+              <Gamepad2 size={15} />
+              <span>
+                {controllerConnected
+                  ? 'A controller is connected and ready.'
+                  : 'Connect a controller, then press any button to wake it up.'}
+              </span>
+            </div>
           </section>
 
           <section className="panel settings-panel">

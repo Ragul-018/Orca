@@ -12,6 +12,7 @@ import {
   Tray
 } from 'electron'
 import type { OpenDialogOptions, OpenDialogReturnValue, SaveDialogOptions, SaveDialogReturnValue } from 'electron'
+import fs from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
@@ -23,6 +24,7 @@ import { DataStore } from './data-store'
 import { SessionManager } from './session-manager'
 import { inspectExecutable, scanFolder } from './scanner'
 import { searchArtwork, downloadImageBuffer } from './artwork-fetcher'
+import { importSteamGames, scanSteamLibrary } from './steam'
 import { loadWindowState, trackWindowState } from './window-state'
 import { checkForUpdates, downloadUpdate, getUpdateStatus, initUpdater, installUpdate } from './updater'
 
@@ -84,6 +86,7 @@ const addGameSchema = z.object({
   favorite: z.boolean().optional(),
   status: gameStatusSchema.optional(),
   rating: z.number().min(0).max(5).nullable().optional(),
+  steamAppId: z.number().int().positive().nullable().optional(),
   coverArt: artworkKey,
   heroArt: artworkKey,
   coverSourcePath: z.string().max(2_000).nullable().optional(),
@@ -107,6 +110,8 @@ const settingsSchema = z
     soundVolume: z.number().min(0).max(1).optional(),
     reduceMotion: z.boolean().optional(),
     autoCheckUpdates: z.boolean().optional(),
+    gamepadEnabled: z.boolean().optional(),
+    couchMode: z.boolean().optional(),
     rawgApiKey: z.string().max(200).optional(),
     igdbClientId: z.string().max(200).optional(),
     igdbClientSecret: z.string().max(200).optional()
@@ -427,6 +432,17 @@ function registerIpc(): void {
     return { folder, candidates }
   })
 
+  ipcMain.handle(IPC.scanSteamLibrary, async () => scanSteamLibrary(store))
+
+  ipcMain.handle(IPC.importSteamGames, async (_event, appIds: unknown) => {
+    const parsed = parseInput(z.array(z.number().int().positive()).min(1).max(1_000), appIds)
+    const result = await importSteamGames(parsed, store, (progress) => {
+      sendToRenderer(IPC.steamImportProgress, progress)
+    })
+    broadcastLibrary()
+    return result
+  })
+
   ipcMain.handle(IPC.chooseArtwork, async (_event, kind: unknown) => {
     const parsedKind = parseInput(artworkKindSchema, kind)
     const result = await showOpenDialog({
@@ -516,6 +532,44 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.openDataFolder, async () => {
     await shell.openPath(store.dataDirectory)
+  })
+
+  ipcMain.handle(IPC.exportPlaytime, async () => {
+    const date = new Date().toISOString().slice(0, 10)
+    const result = await showSaveDialog({
+      title: 'Export playtime history',
+      defaultPath: `orca-playtime-${date}.csv`,
+      filters: [{ name: 'CSV spreadsheet', extensions: ['csv'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+
+    const snapshot = store.getSnapshot()
+    const gamesById = new Map(snapshot.games.map((game) => [game.id, game]))
+    const escape = (value: unknown): string => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const rows = [
+      ['Game', 'Started', 'Ended', 'Duration seconds', 'Duration', 'Source', 'End reason', 'Tracked process', 'Executable']
+        .map(escape)
+        .join(','),
+      ...snapshot.sessions.map((session) => {
+        const game = gamesById.get(session.gameId)
+        return [
+          game?.title ?? 'Unknown game',
+          session.startedAt,
+          session.endedAt,
+          Math.round(session.durationMs / 1_000),
+          formatDuration(session.durationMs, { includeSeconds: true }),
+          session.source,
+          session.endReason,
+          session.processName ?? '',
+          game?.executablePath ?? ''
+        ]
+          .map(escape)
+          .join(',')
+      })
+    ]
+
+    await fs.writeFile(result.filePath, `\uFEFF${rows.join('\r\n')}`, 'utf8')
+    return result.filePath
   })
 
   ipcMain.handle(IPC.windowAction, (_event, action: unknown) => {

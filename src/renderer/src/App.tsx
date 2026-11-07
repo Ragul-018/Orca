@@ -7,6 +7,8 @@ import { Toasts } from './components/Toasts'
 import { SearchOverlay } from './components/SearchOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { AddGameModal } from './components/AddGameModal'
+import { SteamImportModal } from './components/SteamImportModal'
+import { GamepadLayer } from './components/GamepadLayer'
 import { OrcaMark } from './components/Logo'
 import { HomePage } from './pages/HomePage'
 import { LibraryPage } from './pages/LibraryPage'
@@ -15,7 +17,7 @@ import { StatsPage } from './pages/StatsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { primeAudio } from './lib/audio'
 
-const APP_VERSION = '1.1.0'
+const APP_VERSION = '1.2.0'
 const WHATS_NEW_KEY = `orca-whats-new-${APP_VERSION}`
 
 function WhatsNewModal({ onClose }: { onClose: () => void }): React.JSX.Element {
@@ -46,45 +48,42 @@ function WhatsNewModal({ onClose }: { onClose: () => void }): React.JSX.Element 
         onClick={(e) => e.stopPropagation()}
       >
         <header className="whats-new-header">
-          <h1 id="whats-new-title">What's new in Orca 1.1.0</h1>
+          <h1 id="whats-new-title">What's new in Orca 1.2.0</h1>
           <button className="whats-new-close" type="button" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </header>
         <div className="whats-new-body">
           <section className="whats-new-section">
-            <h2>Automatic updates</h2>
+            <h2>Couch mode & controller support</h2>
             <p>
-              Orca now checks for updates in the background, downloads them silently, and offers a one-click
-              restart when a new version is ready. Configure this in Settings → System.
+              Plug in a gamepad and Orca becomes a couch console. Move through the whole interface with the
+              d-pad or stick, launch and stop games, favorite them, and switch tabs without touching the
+              keyboard. Enable it in Settings → Gameplay.
             </p>
           </section>
           <section className="whats-new-section">
-            <h2>Window state persistence</h2>
+            <h2>Steam library import</h2>
             <p>
-              Your window size, position, and maximized state are remembered across sessions — even after a
-              full reboot or monitor change.
+              Orca now reads your installed Steam games straight from <code>libraryfolders.vdf</code> and the
+              app manifests. Pick what to bring over and Orca resolves the executable, downloads official
+              Steam covers, and keeps everything local — no account or API key.
             </p>
           </section>
           <section className="whats-new-section">
-            <h2>Sound & motion settings</h2>
+            <h2>A simpler way to add games</h2>
             <p>
-              Toggle sound effects, adjust volume, and respect your system's <strong>Reduce motion</strong>{' '}
-              preference for a calmer experience.
+              The new add flow starts with three clear paths: choose an executable, scan a folder and add
+              several games at once, or import your Steam shelf. Details, launch options, and artwork are
+              tucked away until you need them.
             </p>
           </section>
           <section className="whats-new-section">
-            <h2>Backup export & restore</h2>
+            <h2>The full playtime record</h2>
             <p>
-              Export your full library (games, sessions, settings, artwork) as a single <code>.zip</code> and
-              restore it in one click. JSON fallback is still supported.
-            </p>
-          </section>
-          <section className="whats-new-section">
-            <h2>More sound cues</h2>
-            <p>
-              Navigation blip, click, toggle, modal open/close, success, error, game launch, and update ready
-              — all synthesized with WebAudio for instant, lightweight feedback.
+              The Playtime tab now shows daily, weekly, and monthly rhythm, a 26-week heatmap, current and
+              best streaks, time-of-day patterns, per-game breakdowns, and a complete filterable session
+              history with CSV export.
             </p>
           </section>
         </div>
@@ -177,7 +176,10 @@ export function App(): React.JSX.Element {
   const view = useOrcaStore((state) => state.view)
   const history = useOrcaStore((state) => state.history)
   const modalOpen = useOrcaStore((state) => state.addGameModal.open)
+  const steamModalOpen = useOrcaStore((state) => state.steamModalOpen)
   const searchOpen = useOrcaStore((state) => state.searchOpen)
+  const couchMode = useOrcaStore((state) => state.snapshot?.settings.couchMode ?? false)
+  const gamepadEnabled = useOrcaStore((state) => state.snapshot?.settings.gamepadEnabled ?? true)
   const initialize = useOrcaStore((state) => state.initialize)
   const openSearch = useOrcaStore((state) => state.openSearch)
   const closeSearch = useOrcaStore((state) => state.closeSearch)
@@ -263,6 +265,12 @@ export function App(): React.JSX.Element {
     else document.documentElement.classList.remove('reduce-motion')
   }, [systemReduceMotion, settingsReduceMotion])
 
+  // Couch mode enlarges type, controls, and focus rings for a TV-sized view.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.classList.toggle('couch-mode', couchMode)
+  }, [couchMode])
+
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [view, history.length])
@@ -301,6 +309,8 @@ export function App(): React.JSX.Element {
       <SearchOverlay />
       <ConfirmDialog />
       {modalOpen && <AddGameModal />}
+      {steamModalOpen && <SteamImportModal />}
+      {gamepadEnabled && <GamepadLayer />}
       {whatsNewOpen && <WhatsNewModal onClose={closeWhatsNew} />}
       <Toasts />
     </div>
