@@ -192,9 +192,11 @@ function handleButton(index: number): void {
   }
 
   if (index === 2) {
-    // X — play or stop the game in focus.
+    // X — open details on Home, otherwise play or stop the game in focus.
     const gameId = contextGameId(active)
-    if (gameId) toggleGame(gameId)
+    if (!gameId) return
+    if (state.view.name === 'home') state.openGame(gameId)
+    else toggleGame(gameId)
     return
   }
 
@@ -354,7 +356,6 @@ export function GamepadLayer(): React.JSX.Element | null {
           { button: 'A', label: 'Play / stop' },
           { button: 'X', label: 'Details' },
           { button: 'Y', label: 'Favorite' },
-          { button: 'B', label: 'Back' },
           { button: 'LB / RB', label: 'Tabs' },
           { button: 'Menu', label: 'Search' }
         ]
@@ -368,13 +369,23 @@ export function GamepadLayer(): React.JSX.Element | null {
             { button: 'LB / RB', label: 'Tabs' },
             { button: 'Menu', label: 'Search' }
           ]
-        : [
-            { button: 'D-pad', label: 'Move' },
-            { button: 'A', label: 'Select' },
-            { button: 'B', label: 'Back' },
-            { button: 'LB / RB', label: 'Tabs' },
-            { button: 'Menu', label: 'Search' }
-          ]
+        : view.name === 'game'
+          ? [
+              { button: 'D-pad', label: 'Move' },
+              { button: 'A', label: 'Select' },
+              { button: 'X', label: 'Play / stop' },
+              { button: 'Y', label: 'Favorite' },
+              { button: 'B', label: 'Back' },
+              { button: 'LB / RB', label: 'Tabs' },
+              { button: 'Menu', label: 'Search' }
+            ]
+          : [
+              { button: 'D-pad', label: 'Move' },
+              { button: 'A', label: 'Select' },
+              { button: 'B', label: 'Back' },
+              { button: 'LB / RB', label: 'Tabs' },
+              { button: 'Menu', label: 'Search' }
+            ]
 
   return (
     <div className="gamepad-hints" role="status" aria-label="Controller shortcuts">

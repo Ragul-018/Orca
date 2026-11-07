@@ -316,6 +316,16 @@ console.log('gamepad favorite toggle:', favoriteBefore, '->', favoriteAfter)
 if (favoriteBefore === favoriteAfter) issues.push('gamepad favorite toggle did not persist')
 await press(1) // B -> back
 await page.waitForSelector('.library-page', { timeout: 5_000 })
+
+// Home X should open details rather than toggle the game.
+await press(4) // LB -> Home
+await page.waitForSelector('.ps5-home', { timeout: 5_000 })
+await page.locator('.ps5-rail-card[data-game-id]').first().focus()
+await press(2) // X -> details
+await page.waitForSelector('.game-page', { timeout: 5_000 })
+console.log('gamepad X opens details: true')
+await press(1) // B -> back home
+await page.waitForSelector('.ps5-home', { timeout: 5_000 })
 await shot('19-gamepad-navigated')
 
 console.log('issues:', issues.length ? `\n${issues.join('\n')}` : '(none)')
