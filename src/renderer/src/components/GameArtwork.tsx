@@ -49,7 +49,14 @@ export function CoverArtwork({ game, className, eager }: ArtProps): React.JSX.El
   }, [src])
 
   return (
-    <div className={clsx('cover-artwork', className)}>
+    <div
+      className={clsx('cover-artwork', className)}
+      style={
+        src && !failed
+          ? ({ '--cover-src': `url("${src}")` } as React.CSSProperties)
+          : undefined
+      }
+    >
       {src && !failed ? (
         <img
           src={src}

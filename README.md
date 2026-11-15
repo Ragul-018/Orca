@@ -28,12 +28,12 @@ Console-inspired. No account. No telemetry.
 
 |  | File | Description |
 |:--|:-----|:------------|
-| 🖥️ | **[Orca-1.2.0-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
-| 🎒 | **[Orca-1.2.0-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
+| 🖥️ | **[Orca-1.2.1-x64.exe](https://github.com/Ragul-018/Orca/releases/latest)** | **Recommended.** Per-user installer with Start menu and desktop shortcuts. Uninstalls cleanly from Windows Settings. |
+| 🎒 | **[Orca-1.2.1-portable.exe](https://github.com/Ragul-018/Orca/releases/latest)** | Single file. No installation — run it from anywhere. |
 
 ### Install
 
-1. Download **`Orca-1.2.0-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
+1. Download **`Orca-1.2.1-x64.exe`** from the [latest release](https://github.com/Ragul-018/Orca/releases/latest).
 2. Run it, choose an install folder, and finish the wizard.
 3. Open **Orca** from the Start menu or desktop shortcut.
 
@@ -41,7 +41,7 @@ Console-inspired. No account. No telemetry.
 > The build is currently unsigned, so Windows SmartScreen may warn you. Choose **More info → Run anyway**.
 
 > [!IMPORTANT]
-> **Upgrading from 1.0.0?** Auto-update starts with 1.1.0. If you are still on 1.0.0, install 1.2.0 manually once; every later version updates itself from inside the app.
+> **Upgrading from 1.0.0?** Auto-update starts with 1.1.0. If you are still on 1.0.0, install 1.2.1 manually once; every later version updates itself from inside the app.
 
 ### Requirements
 
@@ -69,8 +69,9 @@ Console-inspired. No account. No telemetry.
 ### Library
 
 - **Automatic artwork & metadata** — search Steam with no API key and fill the title, developer, year, genres, synopsis, cover, and hero art in one click. IGDB and RAWG keys are optional extras.
+- **Full portrait covers** — library and home posters keep the whole cover in a 2:3 frame with no cropping; any letterbox space is filled with a blurred copy of the same art.
 - **Steam library import** — Orca reads `libraryfolders.vdf` and every `appmanifest_*.acf`, lists your installed Steam games, resolves the executables, and pulls official Steam covers. No API key, no account, nothing uploaded.
-- **Folder scan** — point Orca at a directory and it picks up `.exe`, `.lnk`, `.url`, `.bat`, and `.cmd` files, resolving shortcuts and extracting embedded icons.
+- **Folder scan** — point Orca at a directory and it picks up `.exe`, `.lnk`, `.url`, `.bat`, and `.cmd` files, resolving shortcuts and extracting embedded icons. Review what was found, edit titles, and add several games at once with artwork applied.
 - **Favourites, filters, ratings, and status** — spotlight what matters and keep a real backlog.
 - **Manual import** — add anything with a title, executable path, and optional launch arguments.
 
@@ -89,7 +90,7 @@ Console-inspired. No account. No telemetry.
 
 ### Interface
 
-- **A simpler add flow** — start with one clear choice: choose a game executable, scan a folder and add several games at once, import from Steam, or enter details manually. Metadata, artwork, and launch options stay tucked away until you need them.
+- **A simpler add flow** — start with one clear choice: choose a game executable, scan a folder and add several games at once, import from Steam, or enter details manually. Every path ends with a review step where you can confirm the title and cover before anything is added.
 - **Console-style home** — full-bleed artwork, a horizontal game rail, and a focused tile that scales up as you browse.
 - **Smooth browsing** — selection is compositor-only, so arrow-key moves never reflow the rail or replay the hero animation.
 - **Rich sound design** — WebAudio-synthesized cues for navigation, clicks, toggles, modal open/close, success, errors, game launch, and update ready; plus the original console blip. Volume and toggle in Settings.
@@ -99,7 +100,7 @@ Console-inspired. No account. No telemetry.
 - **System tray** — close to the tray and keep tracking in the background.
 - **Reduce motion** — respects your system's `prefers-reduced-motion` setting for a calmer experience.
 
-### Updates & maintenance (v1.2.0)
+### Updates & maintenance (v1.2.1)
 
 - **Automatic updates** — background check on launch, silent download, "Restart to install" when ready. GitHub Releases provider, no external services. Auto-update starts with 1.1.0; 1.0.0 needs a one-time manual install.
 - **Window state persistence** — remembers size, position, and maximized state across sessions; validates against current display layout.
@@ -145,9 +146,9 @@ Artifacts land in `release/`:
 
 | File | Description |
 |------|-------------|
-| `Orca-1.2.0-x64.exe` | NSIS installer (per-user, optional install dir) |
-| `Orca-1.2.0-portable.exe` | Single-file portable executable |
-| `Orca-1.2.0-x64.exe.blockmap` | Differential update blockmap |
+| `Orca-1.2.1-x64.exe` | NSIS installer (per-user, optional install dir) |
+| `Orca-1.2.1-portable.exe` | Single-file portable executable |
+| `Orca-1.2.1-x64.exe.blockmap` | Differential update blockmap |
 | `latest.yml` | Auto-update manifest for `electron-updater` |
 | `win-unpacked/Orca.exe` | Unpacked build for testing |
 
@@ -156,10 +157,10 @@ Artifacts land in `release/`:
 1. Click **Add game** in the top bar, or **Import Steam** for your Steam shelf.
 2. Pick a source:
    - **Choose a game** — select an `.exe`, `.lnk`, `.url`, `.bat`, or `.cmd`; Orca fills in the title and looks up artwork.
-   - **Scan a folder** — review every executable found and add several games at once.
+   - **Scan a folder** — review every executable found, edit the titles, and add several games at once with artwork applied.
    - **Import from Steam** — select installed Steam games; Orca resolves the executable and downloads the official cover.
    - **Enter details manually** — only a title is required, with optional metadata, artwork, and launch options.
-3. Click **Add to Orca**. Artwork is looked up automatically in the background.
+3. Review the title and cover, then click **Add to Orca**. Artwork is looked up automatically if none is set.
 
 | Type | Launched as |
 |------|-------------|

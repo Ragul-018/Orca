@@ -440,7 +440,7 @@ function artworkFallbacks(url: string, kind: 'cover' | 'hero'): string[] {
   const base = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}`
   const assets =
     kind === 'cover'
-      ? ['library_600x900_2x.jpg', 'library_600x900.jpg', 'capsule_616x353.jpg', 'header.jpg']
+      ? ['library_600x900_2x.jpg', 'library_600x900.jpg', 'library_600x600.jpg', 'capsule_616x353.jpg', 'header.jpg']
       : ['library_hero.jpg', 'library_600x900_2x.jpg', 'header.jpg', 'capsule_616x353.jpg']
   return assets
     .map((asset) => `${base}/${asset}`)

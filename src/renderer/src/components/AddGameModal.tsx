@@ -118,6 +118,38 @@ function payloadFromForm(form: FormState): AddGameInput {
   }
 }
 
+interface ArtworkLookup {
+  coverArt: string | null
+  heroArt: string | null
+  developer?: string
+  releaseYear?: string
+  description?: string
+  genres?: string[]
+}
+
+async function lookupArtwork(title: string): Promise<ArtworkLookup> {
+  const result = await window.orca.fetchArtwork(title)
+  const candidate =
+    result.candidates.find((item) => item.source === 'steam' && item.coverUrl) ?? result.candidates[0]
+  if (!candidate) return { coverArt: null, heroArt: null }
+
+  const coverArt = candidate.coverUrl
+    ? await window.orca.importArtworkUrl(candidate.coverUrl, 'cover')
+    : null
+  const heroArt = candidate.heroUrl
+    ? await window.orca.importArtworkUrl(candidate.heroUrl, 'hero')
+    : null
+
+  return {
+    coverArt,
+    heroArt,
+    developer: candidate.developer || undefined,
+    releaseYear: candidate.releaseYear || undefined,
+    description: candidate.summary || undefined,
+    genres: candidate.genres
+  }
+}
+
 function ArtEditor({
   form,
   patch,
@@ -368,6 +400,7 @@ function CreateGameForm({
   onChooseExecutable,
   onScan,
   onImportSteam,
+  onFindArtwork,
   onSave,
   saving,
   autoArtwork,
@@ -379,6 +412,7 @@ function CreateGameForm({
   onChooseExecutable: () => void
   onScan: () => void
   onImportSteam: () => void
+  onFindArtwork: () => void
   onSave: () => void
   saving: boolean
   autoArtwork: 'idle' | 'searching' | 'done'
@@ -386,7 +420,7 @@ function CreateGameForm({
 }): React.JSX.Element {
   return (
     <div className="add-game-modal__body add-game-modal__body--quick">
-      <ArtEditor form={form} patch={patch} />
+      <ArtEditor form={form} patch={patch} onFindArtwork={onFindArtwork} />
       <div className="game-form">
         <div className="quick-source-bar">
           <button className="quick-source-bar__back" type="button" onClick={onBackToSource} aria-label="Back to add options">
@@ -454,7 +488,11 @@ function CreateGameForm({
               <span>
                 {autoArtwork === 'searching'
                   ? 'Looking for official Steam artwork…'
-                  : 'If no cover is set, Orca will look for official Steam artwork when you save.'}
+                  : autoArtwork === 'done' && form.coverArt
+                    ? 'Official artwork applied. You can change it any time.'
+                    : autoArtwork === 'done' && !form.coverArt
+                      ? 'No official cover found. Add one manually or use Find artwork.'
+                      : 'If no cover is set, Orca will look for official Steam artwork when you save.'}
               </span>
             </div>
           </div>
@@ -473,7 +511,7 @@ function CreateGameForm({
             </button>
             <button className="button button--primary" type="button" onClick={onSave} disabled={saving}>
               {saving ? <LoaderCircle size={15} className="spin" /> : null}
-              {autoArtwork === 'searching' ? 'Finding artwork…' : 'Add to Orca'}
+              Add to Orca
             </button>
           </div>
         </footer>
@@ -606,7 +644,7 @@ function SourceChooser({
                 disabled={selectedCandidates.size === 0}
               >
                 <Check size={15} />
-                Add {selectedCandidates.size > 0 ? selectedCandidates.size : ''}{' '}
+                Review {selectedCandidates.size > 0 ? selectedCandidates.size : ''}{' '}
                 {selectedCandidates.size === 1 ? 'game' : 'games'}
               </button>
             </footer>
@@ -690,6 +728,83 @@ function SourceChooser({
   )
 }
 
+function ScanReview({
+  candidates,
+  titles,
+  onTitleChange,
+  onBack,
+  onConfirm,
+  saving,
+  progress
+}: {
+  candidates: ScanCandidate[]
+  titles: Record<string, string>
+  onTitleChange: (executablePath: string, value: string) => void
+  onBack: () => void
+  onConfirm: () => void
+  saving: boolean
+  progress: { done: number; total: number } | null
+}): React.JSX.Element {
+  return (
+    <div className="add-scan">
+      <div className="add-scan__heading">
+        <div>
+          <h3>
+            {candidates.length} {candidates.length === 1 ? 'game' : 'games'} selected
+          </h3>
+          <p>Check the titles. Orca will find official cover art for games that do not have one yet.</p>
+        </div>
+        <button
+          className="modal-close"
+          type="button"
+          onClick={onBack}
+          aria-label="Back to scan results"
+          disabled={saving}
+        >
+          <X size={17} />
+        </button>
+      </div>
+
+      <div className="add-scan__list">
+        {candidates.map((candidate) => (
+          <div className="add-scan__row" key={candidate.executablePath}>
+            <span className="add-scan__art">
+              {candidate.coverArt ? (
+                <img src={artUrl(candidate.coverArt)} alt="" />
+              ) : (
+                <FolderSearch size={17} />
+              )}
+            </span>
+            <span className="add-scan__info">
+              <input
+                className="text-input add-scan__title-input"
+                value={titles[candidate.executablePath] ?? candidate.suggestedTitle}
+                onChange={(event) => onTitleChange(candidate.executablePath, event.target.value)}
+                aria-label={`Title for ${candidate.name}`}
+                spellCheck={false}
+                disabled={saving}
+              />
+              <small title={candidate.executablePath}>{candidate.name}</small>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <footer className="add-scan__footer">
+        <button className="button button--ghost" type="button" onClick={onBack} disabled={saving}>
+          Back to scan
+        </button>
+        <button className="button button--primary" type="button" onClick={onConfirm} disabled={saving}>
+          {saving ? <LoaderCircle size={15} className="spin" /> : <Check size={15} />}
+          {saving && progress
+            ? `Adding ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
+            : `Add ${candidates.length} ${candidates.length === 1 ? 'game' : 'games'}`}
+        </button>
+      </footer>
+    </div>
+  )
+}
+
 export function AddGameModal(): React.JSX.Element {
   const snapshot = useOrcaStore((state) => state.snapshot)
   const modal = useOrcaStore((state) => state.addGameModal)
@@ -703,13 +818,15 @@ export function AddGameModal(): React.JSX.Element {
 
   const [form, setForm] = useState<FormState>(() => (game ? formFromGame(game) : emptyForm()))
   const [tab, setTab] = useState<'details' | 'launch' | 'artwork'>('details')
-  const [step, setStep] = useState<'source' | 'form'>(isEdit ? 'form' : 'source')
+  const [step, setStep] = useState<'source' | 'form' | 'review'>(isEdit ? 'form' : 'source')
   const [saving, setSaving] = useState(false)
   const [autoArtwork, setAutoArtwork] = useState<'idle' | 'searching' | 'done'>('idle')
   const [scanning, setScanning] = useState(false)
   const [scanCandidates, setScanCandidates] = useState<ScanCandidate[] | null>(null)
   const [scanFolderName, setScanFolderName] = useState('')
   const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(new Set())
+  const [reviewTitles, setReviewTitles] = useState<Record<string, string>>({})
+  const [addProgress, setAddProgress] = useState<{ done: number; total: number } | null>(null)
   const [error, setError] = useState('')
   const scanStarted = useRef(false)
 
@@ -723,14 +840,21 @@ export function AddGameModal(): React.JSX.Element {
     try {
       const choice = await window.orca.chooseExecutable()
       if (!choice) return
+      const title = form.title.trim() ? form.title : choice.suggestedTitle
       patch({
         executablePath: choice.executablePath,
-        title: form.title.trim() ? form.title : choice.suggestedTitle,
+        title,
         workingDirectory: choice.workingDirectory,
         launchArguments: form.launchArguments || choice.launchArguments,
         watchProcess: form.watchProcess || choice.executablePath.split(/[\\/]/).pop() || ''
       })
       setStep('form')
+      if (!isEdit && !form.coverArt) {
+        void findArtworkForForm(title).then((artwork) => {
+          if (artwork.coverArt) patch({ coverArt: artwork.coverArt })
+          if (artwork.heroArt) patch({ heroArt: artwork.heroArt })
+        })
+      }
     } catch (caught) {
       setError(cleanErrorMessage(caught))
     }
@@ -807,56 +931,89 @@ export function AddGameModal(): React.JSX.Element {
     )
   }
 
-  const addSelectedCandidates = async (): Promise<void> => {
-    if (!scanCandidates || selectedCandidates.size === 0 || saving) return
+  const selectedScanCandidates = (): ScanCandidate[] => {
+    if (!scanCandidates) return []
+    return scanCandidates.filter((candidate) => selectedCandidates.has(candidate.executablePath))
+  }
+
+  const beginReview = (): void => {
+    const selected = selectedScanCandidates()
+    if (selected.length === 0) return
+    setReviewTitles(
+      Object.fromEntries(selected.map((candidate) => [candidate.executablePath, candidate.suggestedTitle]))
+    )
+    setError('')
+    setStep('review')
+  }
+
+  const confirmReview = async (): Promise<void> => {
+    const selected = selectedScanCandidates()
+    if (selected.length === 0 || saving) return
+
     setSaving(true)
     setError('')
+    setAddProgress({ done: 0, total: selected.length })
     let added = 0
     const failures: string[] = []
-    for (const candidate of scanCandidates) {
-      if (!selectedCandidates.has(candidate.executablePath)) continue
+
+    for (const [index, candidate] of selected.entries()) {
+      const title =
+        (reviewTitles[candidate.executablePath] ?? candidate.suggestedTitle).trim() ||
+        candidate.suggestedTitle
+      let artwork: ArtworkLookup | null = null
+      if (!candidate.coverArt) {
+        artwork = await lookupArtwork(title).catch(() => null)
+      }
       try {
         await window.orca.addGame({
-          title: candidate.suggestedTitle,
+          title,
           executablePath: candidate.executablePath,
           workingDirectory: candidate.directory,
           watchProcess: candidate.name,
-          coverArt: candidate.coverArt,
-          heroArt: candidate.heroArt
+          coverArt: candidate.coverArt ?? artwork?.coverArt ?? null,
+          heroArt: candidate.heroArt ?? artwork?.heroArt ?? null,
+          developer: artwork?.developer ?? '',
+          releaseYear: artwork?.releaseYear ?? '',
+          description: artwork?.description ?? '',
+          genres: artwork?.genres ?? []
         })
         added += 1
       } catch (caught) {
-        failures.push(`${candidate.suggestedTitle}: ${cleanErrorMessage(caught)}`)
+        failures.push(`${title}: ${cleanErrorMessage(caught)}`)
       }
+      setAddProgress({ done: index + 1, total: selected.length })
     }
+
     setSaving(false)
+    setAddProgress(null)
     if (added > 0) {
       addToast(`${added} ${added === 1 ? 'game' : 'games'} added to your library.`, 'success')
-      close()
     }
     if (failures.length > 0) {
-      setError(failures.slice(0, 2).join(' '))
+      if (added > 0) {
+        addToast(`${failures.length} could not be added. ${failures[0]}`)
+      } else {
+        setError(failures.slice(0, 2).join(' '))
+      }
     }
+    if (added > 0) close()
   }
 
-  const findArtworkForForm = async (): Promise<{ coverArt: string | null; heroArt: string | null }> => {
-    const title = form.title.trim()
+  const findArtworkForForm = async (
+    titleOverride?: string
+  ): Promise<{ coverArt: string | null; heroArt: string | null }> => {
+    const title = (titleOverride ?? form.title).trim()
     if (!title) return { coverArt: null, heroArt: null }
     setAutoArtwork('searching')
     try {
-      const result = await window.orca.fetchArtwork(title)
-      const candidate =
-        result.candidates.find((item) => item.source === 'steam' && item.coverUrl) ?? result.candidates[0]
-      if (!candidate) return { coverArt: null, heroArt: null }
-      let coverArt: string | null = null
-      let heroArt: string | null = null
-      if (candidate.coverUrl) coverArt = await window.orca.importArtworkUrl(candidate.coverUrl, 'cover')
-      if (candidate.heroUrl) heroArt = await window.orca.importArtworkUrl(candidate.heroUrl, 'hero')
-      if (candidate.developer && !form.developer.trim()) patch({ developer: candidate.developer })
-      if (candidate.releaseYear && !form.releaseYear.trim()) patch({ releaseYear: candidate.releaseYear })
-      if (candidate.summary && !form.description.trim()) patch({ description: candidate.summary })
-      if (candidate.genres?.length && !form.genresText.trim()) patch({ genresText: candidate.genres.join(', ') })
-      return { coverArt, heroArt }
+      const artwork = await lookupArtwork(title)
+      if (artwork.developer && !form.developer.trim()) patch({ developer: artwork.developer })
+      if (artwork.releaseYear && !form.releaseYear.trim()) patch({ releaseYear: artwork.releaseYear })
+      if (artwork.description && !form.description.trim()) patch({ description: artwork.description })
+      if (artwork.genres?.length && !form.genresText.trim()) {
+        patch({ genresText: artwork.genres.join(', ') })
+      }
+      return { coverArt: artwork.coverArt, heroArt: artwork.heroArt }
     } catch {
       return { coverArt: null, heroArt: null }
     } finally {
@@ -940,7 +1097,7 @@ export function AddGameModal(): React.JSX.Element {
       }}
     >
       <section
-        className={`add-game-modal ${!isEdit && step === 'source' ? 'add-game-modal--source' : ''}`}
+        className={`add-game-modal ${!isEdit && (step === 'source' || step === 'review') ? 'add-game-modal--source' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-game-title"
@@ -949,10 +1106,22 @@ export function AddGameModal(): React.JSX.Element {
           <div>
             <span className="eyebrow">
               <span className="eyebrow__line" />
-              {isEdit ? 'Refine the record' : step === 'source' ? 'New arrival' : 'Almost there'}
+              {isEdit
+                ? 'Refine the record'
+                : step === 'source'
+                  ? 'New arrival'
+                  : step === 'review'
+                    ? 'Final check'
+                    : 'Almost there'}
             </span>
             <h2 id="add-game-title">
-              {isEdit ? 'Edit game' : step === 'source' ? 'Add a game' : 'Name your game'}
+              {isEdit
+                ? 'Edit game'
+                : step === 'source'
+                  ? 'Add a game'
+                  : step === 'review'
+                    ? 'Review scanned games'
+                    : 'Name your game'}
             </h2>
           </div>
           <button className="modal-close" type="button" onClick={close} aria-label="Close">
@@ -1309,6 +1478,21 @@ export function AddGameModal(): React.JSX.Element {
               </footer>
             </div>
           </div>
+        ) : step === 'review' ? (
+          <div className="add-game-modal__source">
+            <ScanReview
+              candidates={selectedScanCandidates()}
+              titles={reviewTitles}
+              onTitleChange={(executablePath, value) =>
+                setReviewTitles((current) => ({ ...current, [executablePath]: value }))
+              }
+              onBack={() => setStep('source')}
+              onConfirm={() => void confirmReview()}
+              saving={saving}
+              progress={addProgress}
+            />
+            {error && <div className="form-error form-error--source">{error}</div>}
+          </div>
         ) : step === 'source' ? (
           <div className="add-game-modal__source">
             <SourceChooser
@@ -1319,7 +1503,7 @@ export function AddGameModal(): React.JSX.Element {
               onToggleCandidate={toggleCandidate}
               onSelectAll={selectAllCandidates}
               onUseCandidate={applyCandidate}
-              onAddSelected={() => void addSelectedCandidates()}
+              onAddSelected={beginReview}
               onCloseCandidates={() => setScanCandidates(null)}
               onChooseExecutable={() => void chooseExecutable()}
               onScan={() => void scanForGames()}
@@ -1345,6 +1529,7 @@ export function AddGameModal(): React.JSX.Element {
               close()
               openSteamImport()
             }}
+            onFindArtwork={() => void handleFindArtwork()}
             onSave={() => void handleCreateSave()}
             saving={saving}
             autoArtwork={autoArtwork}

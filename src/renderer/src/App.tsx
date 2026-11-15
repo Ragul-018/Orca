@@ -17,7 +17,7 @@ import { StatsPage } from './pages/StatsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { primeAudio } from './lib/audio'
 
-const APP_VERSION = '1.2.0'
+const APP_VERSION = '1.2.1'
 const WHATS_NEW_KEY = `orca-whats-new-${APP_VERSION}`
 
 function WhatsNewModal({ onClose }: { onClose: () => void }): React.JSX.Element {
@@ -48,42 +48,31 @@ function WhatsNewModal({ onClose }: { onClose: () => void }): React.JSX.Element 
         onClick={(e) => e.stopPropagation()}
       >
         <header className="whats-new-header">
-          <h1 id="whats-new-title">What's new in Orca 1.2.0</h1>
+          <h1 id="whats-new-title">What's new in Orca 1.2.1</h1>
           <button className="whats-new-close" type="button" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </header>
         <div className="whats-new-body">
           <section className="whats-new-section">
-            <h2>Couch mode & controller support</h2>
+            <h2>Covers, uncropped</h2>
             <p>
-              Plug in a gamepad and Orca becomes a couch console. Move through the whole interface with the
-              d-pad or stick, launch and stop games, favorite them, and switch tabs without touching the
-              keyboard. Enable it in Settings → Gameplay.
+              Library and Home posters now use true 2:3 portrait frames. The whole cover stays visible, and a
+              softly blurred copy of the artwork fills any letterbox space behind it.
             </p>
           </section>
           <section className="whats-new-section">
-            <h2>Steam library import</h2>
+            <h2>Artwork while you add</h2>
             <p>
-              Orca now reads your installed Steam games straight from <code>libraryfolders.vdf</code> and the
-              app manifests. Pick what to bring over and Orca resolves the executable, downloads official
-              Steam covers, and keeps everything local — no account or API key.
+              Choosing a game executable now fetches official Steam artwork right away, so you can see the cover
+              before saving. A new <strong>Find artwork automatically</strong> button lets you retry any time.
             </p>
           </section>
           <section className="whats-new-section">
-            <h2>A simpler way to add games</h2>
+            <h2>Review before you add</h2>
             <p>
-              The new add flow starts with three clear paths: choose an executable, scan a folder and add
-              several games at once, or import your Steam shelf. Details, launch options, and artwork are
-              tucked away until you need them.
-            </p>
-          </section>
-          <section className="whats-new-section">
-            <h2>The full playtime record</h2>
-            <p>
-              The Playtime tab now shows daily, weekly, and monthly rhythm, a 26-week heatmap, current and
-              best streaks, time-of-day patterns, per-game breakdowns, and a complete filterable session
-              history with CSV export.
+              Folder scans no longer drop bare executables into your library. Pick the games, edit their titles,
+              and confirm the list; Orca applies cover art as it adds them.
             </p>
           </section>
         </div>

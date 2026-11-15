@@ -716,7 +716,7 @@ kbd {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.7s var(--ease);
+  transition: filter 0.3s ease;
 }
 
 .hero-artwork {
@@ -1681,9 +1681,32 @@ kbd {
   display: block;
 }
 
+/* Posters keep their full portrait artwork - no square or 3:4 cropping. A
+   blurred copy of the same art fills any letterbox space behind it. */
+.game-card__art .cover-artwork::before,
+.ps5-rail-card__art .cover-artwork::before,
+.art-editor__cover .cover-artwork::before {
+  content: '';
+  position: absolute;
+  inset: -16px;
+  background-image: var(--cover-src);
+  background-position: center;
+  background-size: cover;
+  filter: blur(16px) brightness(0.42) saturate(1.1);
+  z-index: 0;
+}
+
+.game-card__art .cover-artwork > img,
+.ps5-rail-card__art .cover-artwork > img,
+.art-editor__cover .cover-artwork > img {
+  position: relative;
+  z-index: 1;
+  object-fit: contain;
+}
+
 .game-card__art {
   position: relative;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 2 / 3;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
@@ -1714,7 +1737,7 @@ kbd {
 }
 
 .game-card:hover .cover-artwork > img {
-  transform: scale(1.055);
+  filter: brightness(1.05);
 }
 
 .game-card__pointer-glow {
@@ -1859,7 +1882,7 @@ kbd {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 2 / 3;
   padding: 20px;
   border: 1px dashed rgba(255, 255, 255, 0.13);
   border-radius: 18px;
@@ -3264,7 +3287,7 @@ kbd {
 }
 
 .art-editor__cover .cover-artwork {
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 2 / 3;
   height: auto;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -5390,7 +5413,7 @@ kbd {
   position: relative;
   display: block;
   width: 76px;
-  height: 76px;
+  height: 114px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 13px;
@@ -5940,7 +5963,7 @@ kbd {
   }
 
   .ps5-rail-card__art {
-    height: 62px;
+    height: 93px;
     border-radius: 11px;
   }
 
@@ -6993,6 +7016,14 @@ kbd {
   justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
+}
+
+.add-scan__title-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
 }
 
 .add-game-modal__body--quick {
